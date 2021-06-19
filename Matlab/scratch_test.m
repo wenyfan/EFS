@@ -2,10 +2,20 @@ clf;
 close all;
 clear;
 %%
+% example file path
 efspath = '../EX_DATA/';
+% example file name for read in
+% HHZ components of 2019 Ridgecrest earthquake
 efsname = 'EFS_Example.efs';
-efsname2 = 'test2.efs';
+% 
+efsname2 = 'EFS_Test2.efs';
 efsname3 = 'EFS_Example_Matlab.efs';
+efsname_Fortran = '10056345.efs';
+
+%%
+
+efsStruct_o=load_efs(['../Fortran/' efsname_Fortran]);
+
 
 efsStruct1=load_efs([efspath,efsname]);
 iosuc1 =write_structure2efs(efspath,efsname2,efsStruct1);
