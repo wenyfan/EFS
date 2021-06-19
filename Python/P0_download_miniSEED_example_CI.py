@@ -25,6 +25,6 @@ restrictions = Restrictions(
 
 mdl = MassDownloader()
 
-mdl.download(domain,restrictions, mseed_storage="~/Research/EFS/miniSEED/CI/waveforms/",
-             stationxml_storage="~/Research/EFS/miniSEED/CI/stations/")
+mdl.download(domain,restrictions, mseed_storage="../EX_DATA/CI/waveforms/",
+             stationxml_storage="../EX_DATA/CI/stations/")
 

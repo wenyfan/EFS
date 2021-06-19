@@ -7,8 +7,8 @@ from EFSpy_module import *
 from obspy.clients.fdsn import Client
 import os
 
-EFSPATH = "/Users/wenyuanfan/Documents/GitHub/EFS/EX_DATA/"
-miniSEED_PATH = '/Users/wenyuanfan/Research/EFS/miniSEED/CI/'
+EFSPATH = "../EX_DATA/"
+miniSEED_PATH = '../EX_DATA/CI/'
 
 origin_time = obspy.UTCDateTime(2019 , 7 , 6 , 3 , 19 , 53)
 
