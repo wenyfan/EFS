@@ -1,15 +1,16 @@
 function iosuc =write_iris2efs(efspath,efsname,irisSTR)
 %
-% function to write MATLAB structures into EFS file format 
+% function to write MATLAB structures (from irisFetch) into EFS file format 
 % based on variables in PS efs_subs.f90
 % MATLAB structures are from the irisFetch structure
 %
 % Example:
-% iosuc=load_efs('filename.efs');
+% iosuc=write_iris2efs('filename.efs');
 % iosuc is a return message
 %
-% IMPORTANT: station information and seismograms are stored in NESTED DATA
-% structure.
+% IMPORTANT: station information and seismograms need to be stored in NESTED DATA
+% structure as defined in irisFetch.m
+
 % For example to plot third seismogram in structure:
 % figure; plot(efsStruct.waveforms(3).data);
 % or to access all station names:
