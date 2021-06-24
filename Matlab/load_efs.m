@@ -1,4 +1,4 @@
-function efsStruct=load_efs(name)
+function efsStruct=load_efs(name,itype)
 %
 % function to read EFS file format into a MATLAB structure
 % based on variables in PS efs_subs.f90
@@ -24,6 +24,27 @@ fid=fopen(name);% fclose(fid); clear efsStruct fid=fopen(n)
 clear efsStruct;
 % fseek(fid, 0, 'bof');
 efsStruct.name=name;
+
+if itype == 1
+    ibytepos_type = 'int32';
+    its_type = 'int32';
+elseif itype == 2
+    ibytepos_type = 'int32';
+    its_type = 'single';
+elseif itype == 3
+    ibytepos_type = 'int64';
+    its_type = 'int32';
+elseif itype == 4
+    ibytepos_type = 'int64';
+    its_type = 'single';
+else
+    disp('Wrong data type specification.');
+    disp('itype = 1, byptepos: int32, ts: int32');
+    disp('itype = 2, byptepos: int32, ts: single');
+    disp('itype = 3, byptepos: int64, ts: int32');
+    disp('itype = 4, byptepos: int64, ts: single');
+    return;
+end
 
 %% READ File HEADER INFORMATION
 efsStruct.fhead.byteype = fread(fid,1,'int32');
@@ -66,7 +87,7 @@ efsStruct.ehead.qhr=fread(fid,1,'int32');
 efsStruct.ehead.qmn=fread(fid,1,'int32');
 
 fread(fid,20,'int32'); %dummy
-efsStruct.ehead.bytepos=fread(fid,efsStruct.ehead.numts,'int32');
+efsStruct.ehead.bytepos=fread(fid,efsStruct.ehead.numts,ibytepos_type);
 bytepos = efsStruct.ehead.bytepos;
 %% READ DATA
 %Pre-allocate data structure for station information and seismograms
@@ -174,7 +195,7 @@ for ii=1:stnum
     efsStruct.waveforms(ii).pick4=fread(fid,1,'single');
     
     fread(fid,20,'int32'); %move position
-    efsStruct.waveforms(ii).data=fread(fid,efsStruct.waveforms(ii).npts,'int32');
+    efsStruct.waveforms(ii).data=fread(fid,efsStruct.waveforms(ii).npts,its_type);
     
 end
 

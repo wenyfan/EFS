@@ -1,4 +1,4 @@
-function iosuc =write_structure2efs(efspath,efsname,efsStruct)
+function iosuc =write_structure2efs(efspath,efsname,efsStruct,itype)
 %
 % function to write MATLAB structures into EFS file format 
 % based on variables in PS efs_subs.f90
@@ -17,6 +17,29 @@ function iosuc =write_structure2efs(efspath,efsname,efsStruct)
 %
 % 2021/03/03 WF
 % 'name' needs to include '.efs'
+
+if itype == 1
+    ibytepos_type = 'int32';
+    its_type = 'int32';
+elseif itype == 2
+    ibytepos_type = 'int32';
+    its_type = 'single';
+elseif itype == 3
+    ibytepos_type = 'int64';
+    its_type = 'int32';
+elseif itype == 4
+    ibytepos_type = 'int64';
+    its_type = 'single';
+else
+    disp('Wrong data type specification.');
+    disp('itype = 1, byptepos: int32, ts: int32');
+    disp('itype = 2, byptepos: int32, ts: single');
+    disp('itype = 3, byptepos: int64, ts: int32');
+    disp('itype = 4, byptepos: int64, ts: single');
+    return;
+end
+
+
 %%
 % Data file ID
 fid=fopen([efspath  efsname],'w');% fclose(fid); 
@@ -94,7 +117,7 @@ fwrite(fid,qmn,'int32');
 fwrite(fid,zeros(20,1),'int32'); %dummy
 ilen = 100000;
 bytepos = efsStruct.ehead.bytepos;
-fwrite(fid,bytepos,'int32');
+fwrite(fid,bytepos,ibytepos_type);
 % iosuc=fclose(fid); 
 % return;
 %% write DATA
@@ -180,7 +203,7 @@ for ii=1:stnum
     fwrite(fid,efsStruct.waveforms(ii).pick4,'single');
     
     fwrite(fid,zeros(20,1),'int32'); %dummy
-    fwrite(fid,efsStruct.waveforms(ii).data,'int32'); %data
+    fwrite(fid,efsStruct.waveforms(ii).data,its_type); %data
 
     
 end
