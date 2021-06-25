@@ -37,37 +37,9 @@ except:
     print('Oops, no data')
 
 # Initialize an event header for the EFS file
+ehead = cat2ehead(st1,cat)
 npts_max = 100000
 ntr_max = 1000
-ehead = {}
-ehead['efslabel'] = "{:<40}".format(' ')
-ehead['datasource'] = "{:<40}".format('miniSEED')
-ehead['maxnumts'] = 1000
-ehead['numts'] = len(st1)
-ehead['cuspid'] = 0
-ehead['qtype'] = "{:<4}".format(' ')
-ehead['qmag1type'] = cat[0].magnitudes[0].magnitude_type
-ehead['qmag2type'] = "{:<4}".format(' ')
-ehead['qmag3type'] = "{:<4}".format(' ')
-ehead['qmomenttype'] = "{:<4}".format(' ')
-ehead['qlocqual'] = "{:<4}".format(' ')
-ehead['qfocalqual'] = "{:<4}".format(' ')
-ehead['qlat'] = cat[0].origins[0].latitude
-ehead['qlon'] = cat[0].origins[0].longitude
-ehead['qdep'] = cat[0].origins[0].depth
-ehead['qsc'] = cat[0].origins[0].time.second
-ehead['qmag1'] = cat[0].magnitudes[0].mag
-ehead['qmag2'] = 0
-ehead['qmag3'] = 0
-ehead['qmoment'] = 0
-ehead['qstrike'] = 0
-ehead['qdip'] = 0
-ehead['qrake'] = 0
-ehead['qyr'] = cat[0].origins[0].time.year
-ehead['qmon'] = cat[0].origins[0].time.month
-ehead['qdy'] = cat[0].origins[0].time.day
-ehead['qhr'] = cat[0].origins[0].time.hour
-ehead['qmn'] = cat[0].origins[0].time.minute
 
 # Create EFS file from Obspy
 print("Creating EFS object.")
@@ -78,11 +50,11 @@ print("Done.")
 # Write EFS to file
 print("Testing EFS export.")
 filename = 'EFS_Example.efs'
-export_efs_i32_i32(EFSPATH, filename, efs_data)
+export_efs_i32_f32(EFSPATH, filename, efs_data)
 print("Done.")
 
 # Convert EFS to obspy
 print("Converting EFS object back to a stream.")
-efs_data_2 = EFS_i32_i32(EFSPATH + filename)
+efs_data_2 = EFS_i32_f32(EFSPATH + filename)
 st2 = efs_data_2.to_obspy()
 print("Done.")

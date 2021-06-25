@@ -2,10 +2,13 @@
 # Modified from codes of Daniel Trugman and Robin Matoza
 # Wenyuan Fan 2021, 03, 01
 
+
 import numpy as np
 import matplotlib.pyplot as plt
 import struct
 import obspy
+# creat an eheader from a catalog
+
 
 
 # read efs based on the EFS class
@@ -74,7 +77,7 @@ class EFS_i32_i32():
             dummy = struct.unpack('i', f.read(4))[0]
 
         # Get byte positions for all time series
-        bytepos = np.fromfile(f, dtype=np.int32, count=self.ehead['numts'])
+        bytepos = np.fromfile(f, dtype = np.int32, count = self.ehead['numts'])
         self.ehead['bytepos'] = bytepos
 
         # Now loop over all the time series
@@ -131,7 +134,7 @@ class EFS_i32_i32():
                 dummy = struct.unpack('i', f.read(4))[0]
 
             # Read the time-series itself
-            data = np.fromfile(f, dtype=np.int32, count=tshead['npts'])  # little-endian float32
+            data = np.fromfile(f, dtype = np.int32, count = tshead['npts'])  # little-endian float32
             # bytepos = np.fromfile(f, dtype=np.int32, count=self.ehead['numts'])
 
             # Bundle tsheader and time-series for this waveform into efsdata, then append to list
@@ -221,13 +224,12 @@ class EFS_i32_i32():
                         stats['pick_data'][key3] = wf[key3].strip()
 
             # Update stream
-            st += Stream([Trace(data=wf['data'], header=stats)])
+            st += Stream([Trace(data = wf['data'], header = stats)])
 
         # return Obspy stream
         return st
 
-    ###########################################################
-    ###########################################################
+        ###########################################################
 
     ### Function to Convert From ObsPy Stream to EFS
     def from_obspy(st, evhead={}, invs={}):
@@ -246,7 +248,7 @@ class EFS_i32_i32():
             raise
 
         # initialize EFS: blank fhead, ehead, waveforms
-        efs_data = EFS()
+        efs_data = EFS_i32_i32()
 
         # set default tshead
         efs_data.fhead['bytetype'] = 1
@@ -296,7 +298,7 @@ class EFS_i32_i32():
             # tshead: fields from stats
 
             if 'invs' in locals():
-                tmp1 = invs.select(station=tr.stats.station)
+                tmp1 = invs.select(station = tr.stats.station)
                 wf['slat'] = tmp1[0].stations[0].latitude
                 wf['slon'] = tmp1[0].stations[0].longitude
                 wf['selev'] = tmp1[0].stations[0].elevation
@@ -340,84 +342,6 @@ class EFS_i32_i32():
 
         # return
         return efs_data
-
-    ###########################################################
-    ###########################################################
-
-    ### Function to Make Simple Waveform Plots
-
-    def plot(self, idx=None, sfigW=8.5, sfigH=2.5, show=True):
-
-        '''
-        Simple function to plot EFS waveforms. The argument idx gives
-        the list indices of waveforms to plot (default is all waveforms).
-        '''
-
-        # indices of waveforms to plot
-        if idx is None:
-            idx = range(self.ehead['numts'])
-        nplots = len(idx)
-
-        # figure / subplot setup
-        fig, axi = plt.subplots(nplots, 1)
-        fig.set_size_inches(sfigW, sfigH * nplots, forward=True)
-        fig.subplots_adjust(hspace=0.2)
-
-        # get event time, if possible
-        if self.ehead['qyr'] > 0:
-            qtime = '{:4d}-{:02d}-{:02d} {:02d}:{:02d}:{:7.4f}'.format(
-                self.ehead['qyr'], self.ehead['qmon'], self.ehead['qdy'],
-                self.ehead['qhr'], self.ehead['qmn'], self.ehead['qsc'])
-        else:
-            qtime = None
-
-        # loop over waveforms
-        minT, maxT = 999, -999
-        for ii in range(nplots):
-
-            # get current waveform
-            wf = self.waveforms[idx[ii]]
-
-            # get current axis
-            ax = axi[ii]
-
-            # set up time vector
-            if qtime is None:
-                tt = wf['dt'] * np.arange(wf['npts'])
-            else:
-                tt = -wf['tdif'] + wf['dt'] * np.arange(wf['npts'])
-            minT = min(minT, tt[0])
-            maxT = max(maxT, tt[-1])
-
-            # plot data
-            lab = '{:}.{:}.{:}.{:}'.format(
-                wf['stype'].strip(), wf['stname'].strip(), wf['loccode'].strip(), wf['chnm'].strip())
-            ax.plot(tt, wf['data'], '-k', label=lab)
-            ax.legend(loc='upper left', fontsize=12)
-
-            # format ticks and grid
-            ax.tick_params(labelsize=12)
-            ax.grid()
-
-        # x-label for final time series
-        if qtime is None:
-            xlab = 'Time (s)'
-        else:
-            xlab = 'Time (s), relative to {:}'.format(qtime)
-        ax.set_xlabel(xlab, fontsize=14)
-
-        # align all x-axes
-        XL = (np.floor(minT), np.ceil(maxT))
-        for ii in range(nplots):
-            axi[ii].set_xlim(XL)
-
-        # show or return fig
-        if show:
-            plt.show()
-            plt.close()
-        else:
-            return fig
-
 
 # read efs based on the EFS class
 # bytepos int32
@@ -485,7 +409,7 @@ class EFS_i32_f32():
             dummy = struct.unpack('i', f.read(4))[0]
 
         # Get byte positions for all time series
-        bytepos = np.fromfile(f, dtype=np.int32, count=self.ehead['numts'])
+        bytepos = np.fromfile(f, dtype = np.int32, count = self.ehead['numts'])
         self.ehead['bytepos'] = bytepos
 
         # Now loop over all the time series
@@ -542,7 +466,7 @@ class EFS_i32_f32():
                 dummy = struct.unpack('i', f.read(4))[0]
 
             # Read the time-series itself
-            data = np.fromfile(f, dtype=np.single, count=tshead['npts'])  # little-endian float32
+            data = np.fromfile(f, dtype = np.single, count = tshead['npts'])  # little-endian float32
             # bytepos = np.fromfile(f, dtype=np.int32, count=self.ehead['numts'])
 
             # Bundle tsheader and time-series for this waveform into efsdata, then append to list
@@ -632,7 +556,7 @@ class EFS_i32_f32():
                         stats['pick_data'][key3] = wf[key3].strip()
 
             # Update stream
-            st += Stream([Trace(data=wf['data'], header=stats)])
+            st += Stream([Trace(data = wf['data'], header = stats)])
 
         # return Obspy stream
         return st
@@ -657,7 +581,7 @@ class EFS_i32_f32():
             raise
 
         # initialize EFS: blank fhead, ehead, waveforms
-        efs_data = EFS()
+        efs_data = EFS_i32_f32()
 
         # set default tshead
         efs_data.fhead['bytetype'] = 1
@@ -707,7 +631,7 @@ class EFS_i32_f32():
             # tshead: fields from stats
 
             if 'invs' in locals():
-                tmp1 = invs.select(station=tr.stats.station)
+                tmp1 = invs.select(station = tr.stats.station)
                 wf['slat'] = tmp1[0].stations[0].latitude
                 wf['slon'] = tmp1[0].stations[0].longitude
                 wf['selev'] = tmp1[0].stations[0].elevation
@@ -819,7 +743,7 @@ class EFS_i64_i32():
             dummy = struct.unpack('i', f.read(4))[0]
 
         # Get byte positions for all time series
-        bytepos = np.fromfile(f, dtype=np.int64, count=self.ehead['numts'])
+        bytepos = np.fromfile(f, dtype = np.int64, count = self.ehead['numts'])
         self.ehead['bytepos'] = bytepos
 
         # Now loop over all the time series
@@ -876,7 +800,7 @@ class EFS_i64_i32():
                 dummy = struct.unpack('i', f.read(4))[0]
 
             # Read the time-series itself
-            data = np.fromfile(f, dtype=np.int32, count=tshead['npts'])  # little-endian float32
+            data = np.fromfile(f, dtype = np.int32, count = tshead['npts'])  # little-endian float32
             # bytepos = np.fromfile(f, dtype=np.int32, count=self.ehead['numts'])
 
             # Bundle tsheader and time-series for this waveform into efsdata, then append to list
@@ -966,7 +890,7 @@ class EFS_i64_i32():
                         stats['pick_data'][key3] = wf[key3].strip()
 
             # Update stream
-            st += Stream([Trace(data=wf['data'], header=stats)])
+            st += Stream([Trace(data = wf['data'], header = stats)])
 
         # return Obspy stream
         return st
@@ -991,7 +915,7 @@ class EFS_i64_i32():
             raise
 
         # initialize EFS: blank fhead, ehead, waveforms
-        efs_data = EFS()
+        efs_data = EFS_i64_i32()
 
         # set default tshead
         efs_data.fhead['bytetype'] = 1
@@ -1041,7 +965,7 @@ class EFS_i64_i32():
             # tshead: fields from stats
 
             if 'invs' in locals():
-                tmp1 = invs.select(station=tr.stats.station)
+                tmp1 = invs.select(station = tr.stats.station)
                 wf['slat'] = tmp1[0].stations[0].latitude
                 wf['slon'] = tmp1[0].stations[0].longitude
                 wf['selev'] = tmp1[0].stations[0].elevation
@@ -1153,7 +1077,7 @@ class EFS_i64_f32():
             dummy = struct.unpack('i', f.read(4))[0]
 
         # Get byte positions for all time series
-        bytepos = np.fromfile(f, dtype=np.int64, count=self.ehead['numts'])
+        bytepos = np.fromfile(f, dtype = np.int64, count = self.ehead['numts'])
         self.ehead['bytepos'] = bytepos
 
         # Now loop over all the time series
@@ -1210,7 +1134,7 @@ class EFS_i64_f32():
                 dummy = struct.unpack('i', f.read(4))[0]
 
             # Read the time-series itself
-            data = np.fromfile(f, dtype=np.single, count=tshead['npts'])  # little-endian float32
+            data = np.fromfile(f, dtype = np.single, count = tshead['npts'])  # little-endian float32
             # bytepos = np.fromfile(f, dtype=np.int32, count=self.ehead['numts'])
 
             # Bundle tsheader and time-series for this waveform into efsdata, then append to list
@@ -1300,7 +1224,7 @@ class EFS_i64_f32():
                         stats['pick_data'][key3] = wf[key3].strip()
 
             # Update stream
-            st += Stream([Trace(data=wf['data'], header=stats)])
+            st += Stream([Trace(data = wf['data'], header = stats)])
 
         # return Obspy stream
         return st
@@ -1325,7 +1249,7 @@ class EFS_i64_f32():
             raise
 
         # initialize EFS: blank fhead, ehead, waveforms
-        efs_data = EFS()
+        efs_data = EFS_i64_f32()
 
         # set default tshead
         efs_data.fhead['bytetype'] = 1
@@ -1375,7 +1299,7 @@ class EFS_i64_f32():
             # tshead: fields from stats
 
             if 'invs' in locals():
-                tmp1 = invs.select(station=tr.stats.station)
+                tmp1 = invs.select(station = tr.stats.station)
                 wf['slat'] = tmp1[0].stations[0].latitude
                 wf['slon'] = tmp1[0].stations[0].longitude
                 wf['selev'] = tmp1[0].stations[0].elevation
@@ -1529,7 +1453,7 @@ def export_efs_i32_i32(EFSPATH, efsname, efs_data):
         # f22.write(bytearray(efs_data.waveforms[ii]['data']))
         # np.array(efs_data.waveforms[ii]['data'], dtype=np.uint32).tofile(f22)
         tmp1 = efs_data.waveforms[ii]['data']
-        np.array(tmp1, dtype=np.int32).tofile(f22)
+        np.array(tmp1, dtype = np.int32).tofile(f22)
 
     f22.close()
 
@@ -1642,7 +1566,7 @@ def export_efs_i32_f32(EFSPATH, efsname, efs_data):
         # f22.write(bytearray(efs_data.waveforms[ii]['data']))
         # np.array(efs_data.waveforms[ii]['data'], dtype=np.uint32).tofile(f22)
         tmp1 = efs_data.waveforms[ii]['data']
-        np.array(tmp1, dtype=np.single).tofile(f22)
+        np.array(tmp1, dtype = np.single).tofile(f22)
 
     f22.close()
 
@@ -1755,7 +1679,7 @@ def export_efs_i64_i32(EFSPATH, efsname, efs_data):
         # f22.write(bytearray(efs_data.waveforms[ii]['data']))
         # np.array(efs_data.waveforms[ii]['data'], dtype=np.uint32).tofile(f22)
         tmp1 = efs_data.waveforms[ii]['data']
-        np.array(tmp1, dtype=np.int32).tofile(f22)
+        np.array(tmp1, dtype = np.int32).tofile(f22)
 
     f22.close()
 
@@ -1868,6 +1792,43 @@ def export_efs_i64_f32(EFSPATH, efsname, efs_data):
         # f22.write(bytearray(efs_data.waveforms[ii]['data']))
         # np.array(efs_data.waveforms[ii]['data'], dtype=np.uint32).tofile(f22)
         tmp1 = efs_data.waveforms[ii]['data']
-        np.array(tmp1, dtype=np.single).tofile(f22)
+        np.array(tmp1, dtype = np.single).tofile(f22)
 
     f22.close()
+
+
+
+def cat2ehead(st1,cat):
+    import obspy
+    ehead = {}
+    ehead['efslabel'] = "{:<40}".format(' ')
+    ehead['datasource'] = "{:<40}".format('miniSEED')
+    ehead['maxnumts'] = 1000
+    ehead['numts'] = len(st1)
+    ehead['cuspid'] = 0
+    ehead['qtype'] = "{:<4}".format(' ')
+    ehead['qmag1type'] = cat[0].magnitudes[0].magnitude_type
+    ehead['qmag2type'] = "{:<4}".format(' ')
+    ehead['qmag3type'] = "{:<4}".format(' ')
+    ehead['qmomenttype'] = "{:<4}".format(' ')
+    ehead['qlocqual'] = "{:<4}".format(' ')
+    ehead['qfocalqual'] = "{:<4}".format(' ')
+    ehead['qlat'] = cat[0].origins[0].latitude
+    ehead['qlon'] = cat[0].origins[0].longitude
+    ehead['qdep'] = cat[0].origins[0].depth
+    ehead['qsc'] = cat[0].origins[0].time.second
+    ehead['qmag1'] = cat[0].magnitudes[0].mag
+    ehead['qmag2'] = 0
+    ehead['qmag3'] = 0
+    ehead['qmoment'] = 0
+    ehead['qstrike'] = 0
+    ehead['qdip'] = 0
+    ehead['qrake'] = 0
+    ehead['qyr'] = cat[0].origins[0].time.year
+    ehead['qmon'] = cat[0].origins[0].time.month
+    ehead['qdy'] = cat[0].origins[0].time.day
+    ehead['qhr'] = cat[0].origins[0].time.hour
+    ehead['qmn'] = cat[0].origins[0].time.minute
+
+    return ehead
+
