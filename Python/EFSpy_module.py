@@ -1346,11 +1346,24 @@ class EFS_i64_f32():
 
 
 # write efs based on the EFS class
-# bytepost int32
-# time series int32
-def export_efs_i32_i32(EFSPATH, efsname, efs_data):
+# itype defines the bytepos and time series values
+
+def export_efs(EFSPATH, efsname, efs_data, itype):
     fname2 = EFSPATH + efsname
     f22 = open(fname2, "wb")
+
+    if itype == 1:
+        ibytetype = "i"
+        itstype = np.int32
+    elif itype == 2:
+        ibytetype = "i"
+        itstype = np.single
+    elif itype == 3:
+        ibytetype = "q"
+        itstype = np.int32
+    elif itype == 4:
+        ibytetype = "q"
+        itstype = np.single
 
     # write file header
     # arr = struct.pack("i", efs_data.fhead['bytetype'])
@@ -1396,7 +1409,7 @@ def export_efs_i32_i32(EFSPATH, efsname, efs_data):
 
     # byte positions for all time series
     for ipos in range(0, efs_data.ehead['numts']):
-        f22.write(struct.pack("i", efs_data.ehead['bytepos'][ipos]))
+        f22.write(struct.pack(ibytetype, efs_data.ehead['bytepos'][ipos]))
 
     # ilen = 100000
     # np.array(np.zeros(ilen*efs_data.ehead['numts']), dtype=np.uint32).tofile(f22)
@@ -1453,348 +1466,10 @@ def export_efs_i32_i32(EFSPATH, efsname, efs_data):
         # f22.write(bytearray(efs_data.waveforms[ii]['data']))
         # np.array(efs_data.waveforms[ii]['data'], dtype=np.uint32).tofile(f22)
         tmp1 = efs_data.waveforms[ii]['data']
-        np.array(tmp1, dtype = np.int32).tofile(f22)
+        np.array(tmp1, dtype = itstype).tofile(f22)
 
     f22.close()
 
-
-# write efs based on the EFS class
-# bytepost int32
-# time series float32
-def export_efs_i32_f32(EFSPATH, efsname, efs_data):
-    fname2 = EFSPATH + efsname
-    f22 = open(fname2, "wb")
-
-    # write file header
-    # arr = struct.pack("i", efs_data.fhead['bytetype'])
-    f22.write(struct.pack("i", efs_data.fhead['bytetype']))
-    f22.write(struct.pack("i", efs_data.fhead['eheadtype']))
-    f22.write(struct.pack("i", efs_data.fhead['nbytes_ehead']))
-    f22.write(struct.pack("i", efs_data.fhead['tsheadtype']))
-    f22.write(struct.pack("i", efs_data.fhead['nbytes_tshead']))
-
-    # write event header
-    f22.write(struct.pack("40s", efs_data.ehead['efslabel'].encode()))
-    f22.write(struct.pack("40s", efs_data.ehead['datasource'].encode()))
-    f22.write(struct.pack("i", efs_data.ehead['maxnumts']))
-    f22.write(struct.pack("i", efs_data.ehead['numts']))
-    f22.write(struct.pack("i", efs_data.ehead['cuspid']))
-    f22.write(struct.pack("4s", efs_data.ehead['qtype'].encode()))
-    f22.write(struct.pack("4s", efs_data.ehead['qmag1type'].encode()))
-    f22.write(struct.pack("4s", efs_data.ehead['qmag2type'].encode()))
-    f22.write(struct.pack("4s", efs_data.ehead['qmag3type'].encode()))
-    f22.write(struct.pack("4s", efs_data.ehead['qmomenttype'].encode()))
-    f22.write(struct.pack("4s", efs_data.ehead['qlocqual'].encode()))
-    f22.write(struct.pack("4s", efs_data.ehead['qfocalqual'].encode()))
-    f22.write(struct.pack("f", efs_data.ehead['qlat']))
-    f22.write(struct.pack("f", efs_data.ehead['qlon']))
-    f22.write(struct.pack("f", efs_data.ehead['qdep']))
-    f22.write(struct.pack("f", efs_data.ehead['qsc']))
-    f22.write(struct.pack("f", efs_data.ehead['qmag1']))
-    f22.write(struct.pack("f", efs_data.ehead['qmag2']))
-    f22.write(struct.pack("f", efs_data.ehead['qmag3']))
-    f22.write(struct.pack("f", efs_data.ehead['qmoment']))
-    f22.write(struct.pack("f", efs_data.ehead['qstrike']))
-    f22.write(struct.pack("f", efs_data.ehead['qdip']))
-    f22.write(struct.pack("f", efs_data.ehead['qrake']))
-    f22.write(struct.pack("i", efs_data.ehead['qyr']))
-    f22.write(struct.pack("i", efs_data.ehead['qmon']))
-    f22.write(struct.pack("i", efs_data.ehead['qdy']))
-    f22.write(struct.pack("i", efs_data.ehead['qhr']))
-    f22.write(struct.pack("i", efs_data.ehead['qmn']))
-
-    # 20 4-byte field
-    for idum in range(0, 20):
-        f22.write(struct.pack("i", idum * 0))
-
-    # byte positions for all time series
-    for ipos in range(0, efs_data.ehead['numts']):
-        f22.write(struct.pack("i", efs_data.ehead['bytepos'][ipos]))
-
-    # ilen = 100000
-    # np.array(np.zeros(ilen*efs_data.ehead['numts']), dtype=np.uint32).tofile(f22)
-
-    for ii in range(0, efs_data.ehead['numts']):
-
-        f22.seek(efs_data.ehead['bytepos'][ii])
-        f22.write(struct.pack("8s", efs_data.waveforms[ii]['stname'].encode()))
-        f22.write(struct.pack("8s", efs_data.waveforms[ii]['loccode'].encode()))
-        f22.write(struct.pack("8s", efs_data.waveforms[ii]['datasource'].encode()))
-        f22.write(struct.pack("8s", efs_data.waveforms[ii]['sensor'].encode()))
-        f22.write(struct.pack("8s", efs_data.waveforms[ii]['units'].encode()))
-        f22.write(struct.pack("4s", efs_data.waveforms[ii]['chnm'].encode()))
-        f22.write(struct.pack("4s", efs_data.waveforms[ii]['stype'].encode()))
-        f22.write(struct.pack("4s", efs_data.waveforms[ii]['dva'].encode()))
-        f22.write(struct.pack("4s", efs_data.waveforms[ii]['pick1q'].encode()))
-        f22.write(struct.pack("4s", efs_data.waveforms[ii]['pick2q'].encode()))
-        f22.write(struct.pack("4s", efs_data.waveforms[ii]['pick3q'].encode()))
-        f22.write(struct.pack("4s", efs_data.waveforms[ii]['pick4q'].encode()))
-        f22.write(struct.pack("4s", efs_data.waveforms[ii]['pick1name'].encode()))
-        f22.write(struct.pack("4s", efs_data.waveforms[ii]['pick2name'].encode()))
-        f22.write(struct.pack("4s", efs_data.waveforms[ii]['pick3name'].encode()))
-        f22.write(struct.pack("4s", efs_data.waveforms[ii]['pick4name'].encode()))
-        f22.write(struct.pack("4s", efs_data.waveforms[ii]['ppolarity'].encode()))
-        f22.write(struct.pack("4s", efs_data.waveforms[ii]['problem'].encode()))
-        f22.write(struct.pack("i", efs_data.waveforms[ii]['npts']))
-        f22.write(struct.pack("i", efs_data.waveforms[ii]['syr']))
-        f22.write(struct.pack("i", efs_data.waveforms[ii]['smon']))
-        f22.write(struct.pack("i", efs_data.waveforms[ii]['sdy']))
-        f22.write(struct.pack("i", efs_data.waveforms[ii]['shr']))
-        f22.write(struct.pack("i", efs_data.waveforms[ii]['smn']))
-        f22.write(struct.pack("f", efs_data.waveforms[ii]['compazi']))
-        f22.write(struct.pack("f", efs_data.waveforms[ii]['compang']))
-        f22.write(struct.pack("f", efs_data.waveforms[ii]['gain']))
-        f22.write(struct.pack("f", efs_data.waveforms[ii]['f1']))
-        f22.write(struct.pack("f", efs_data.waveforms[ii]['f2']))
-        f22.write(struct.pack("f", efs_data.waveforms[ii]['dt']))
-        f22.write(struct.pack("f", efs_data.waveforms[ii]['ssc']))
-        f22.write(struct.pack("f", efs_data.waveforms[ii]['tdif']))
-        f22.write(struct.pack("f", efs_data.waveforms[ii]['slat']))
-        f22.write(struct.pack("f", efs_data.waveforms[ii]['slon']))
-        f22.write(struct.pack("f", efs_data.waveforms[ii]['selev']))
-        f22.write(struct.pack("f", efs_data.waveforms[ii]['deldist']))
-        f22.write(struct.pack("f", efs_data.waveforms[ii]['sazi']))
-        f22.write(struct.pack("f", efs_data.waveforms[ii]['qazi']))
-        f22.write(struct.pack("f", efs_data.waveforms[ii]['pick1']))
-        f22.write(struct.pack("f", efs_data.waveforms[ii]['pick2']))
-        f22.write(struct.pack("f", efs_data.waveforms[ii]['pick3']))
-        f22.write(struct.pack("f", efs_data.waveforms[ii]['pick4'] * 0 - 99))
-
-        for idum in range(0, 20):
-            f22.write(struct.pack("i", idum * 0))
-
-        # f22.write(bytearray(efs_data.waveforms[ii]['data']))
-        # np.array(efs_data.waveforms[ii]['data'], dtype=np.uint32).tofile(f22)
-        tmp1 = efs_data.waveforms[ii]['data']
-        np.array(tmp1, dtype = np.single).tofile(f22)
-
-    f22.close()
-
-
-# write efs based on the EFS class
-# bytepost int64
-# time series int32
-def export_efs_i64_i32(EFSPATH, efsname, efs_data):
-    fname2 = EFSPATH + efsname
-    f22 = open(fname2, "wb")
-
-    # write file header
-    # arr = struct.pack("i", efs_data.fhead['bytetype'])
-    f22.write(struct.pack("i", efs_data.fhead['bytetype']))
-    f22.write(struct.pack("i", efs_data.fhead['eheadtype']))
-    f22.write(struct.pack("i", efs_data.fhead['nbytes_ehead']))
-    f22.write(struct.pack("i", efs_data.fhead['tsheadtype']))
-    f22.write(struct.pack("i", efs_data.fhead['nbytes_tshead']))
-
-    # write event header
-    f22.write(struct.pack("40s", efs_data.ehead['efslabel'].encode()))
-    f22.write(struct.pack("40s", efs_data.ehead['datasource'].encode()))
-    f22.write(struct.pack("i", efs_data.ehead['maxnumts']))
-    f22.write(struct.pack("i", efs_data.ehead['numts']))
-    f22.write(struct.pack("i", efs_data.ehead['cuspid']))
-    f22.write(struct.pack("4s", efs_data.ehead['qtype'].encode()))
-    f22.write(struct.pack("4s", efs_data.ehead['qmag1type'].encode()))
-    f22.write(struct.pack("4s", efs_data.ehead['qmag2type'].encode()))
-    f22.write(struct.pack("4s", efs_data.ehead['qmag3type'].encode()))
-    f22.write(struct.pack("4s", efs_data.ehead['qmomenttype'].encode()))
-    f22.write(struct.pack("4s", efs_data.ehead['qlocqual'].encode()))
-    f22.write(struct.pack("4s", efs_data.ehead['qfocalqual'].encode()))
-    f22.write(struct.pack("f", efs_data.ehead['qlat']))
-    f22.write(struct.pack("f", efs_data.ehead['qlon']))
-    f22.write(struct.pack("f", efs_data.ehead['qdep']))
-    f22.write(struct.pack("f", efs_data.ehead['qsc']))
-    f22.write(struct.pack("f", efs_data.ehead['qmag1']))
-    f22.write(struct.pack("f", efs_data.ehead['qmag2']))
-    f22.write(struct.pack("f", efs_data.ehead['qmag3']))
-    f22.write(struct.pack("f", efs_data.ehead['qmoment']))
-    f22.write(struct.pack("f", efs_data.ehead['qstrike']))
-    f22.write(struct.pack("f", efs_data.ehead['qdip']))
-    f22.write(struct.pack("f", efs_data.ehead['qrake']))
-    f22.write(struct.pack("i", efs_data.ehead['qyr']))
-    f22.write(struct.pack("i", efs_data.ehead['qmon']))
-    f22.write(struct.pack("i", efs_data.ehead['qdy']))
-    f22.write(struct.pack("i", efs_data.ehead['qhr']))
-    f22.write(struct.pack("i", efs_data.ehead['qmn']))
-
-    # 20 4-byte field
-    for idum in range(0, 20):
-        f22.write(struct.pack("i", idum * 0))
-
-    # byte positions for all time series
-    for ipos in range(0, efs_data.ehead['numts']):
-        f22.write(struct.pack("q", efs_data.ehead['bytepos'][ipos]))
-
-    # ilen = 100000
-    # np.array(np.zeros(ilen*efs_data.ehead['numts']), dtype=np.uint32).tofile(f22)
-
-    for ii in range(0, efs_data.ehead['numts']):
-
-        f22.seek(efs_data.ehead['bytepos'][ii])
-        f22.write(struct.pack("8s", efs_data.waveforms[ii]['stname'].encode()))
-        f22.write(struct.pack("8s", efs_data.waveforms[ii]['loccode'].encode()))
-        f22.write(struct.pack("8s", efs_data.waveforms[ii]['datasource'].encode()))
-        f22.write(struct.pack("8s", efs_data.waveforms[ii]['sensor'].encode()))
-        f22.write(struct.pack("8s", efs_data.waveforms[ii]['units'].encode()))
-        f22.write(struct.pack("4s", efs_data.waveforms[ii]['chnm'].encode()))
-        f22.write(struct.pack("4s", efs_data.waveforms[ii]['stype'].encode()))
-        f22.write(struct.pack("4s", efs_data.waveforms[ii]['dva'].encode()))
-        f22.write(struct.pack("4s", efs_data.waveforms[ii]['pick1q'].encode()))
-        f22.write(struct.pack("4s", efs_data.waveforms[ii]['pick2q'].encode()))
-        f22.write(struct.pack("4s", efs_data.waveforms[ii]['pick3q'].encode()))
-        f22.write(struct.pack("4s", efs_data.waveforms[ii]['pick4q'].encode()))
-        f22.write(struct.pack("4s", efs_data.waveforms[ii]['pick1name'].encode()))
-        f22.write(struct.pack("4s", efs_data.waveforms[ii]['pick2name'].encode()))
-        f22.write(struct.pack("4s", efs_data.waveforms[ii]['pick3name'].encode()))
-        f22.write(struct.pack("4s", efs_data.waveforms[ii]['pick4name'].encode()))
-        f22.write(struct.pack("4s", efs_data.waveforms[ii]['ppolarity'].encode()))
-        f22.write(struct.pack("4s", efs_data.waveforms[ii]['problem'].encode()))
-        f22.write(struct.pack("i", efs_data.waveforms[ii]['npts']))
-        f22.write(struct.pack("i", efs_data.waveforms[ii]['syr']))
-        f22.write(struct.pack("i", efs_data.waveforms[ii]['smon']))
-        f22.write(struct.pack("i", efs_data.waveforms[ii]['sdy']))
-        f22.write(struct.pack("i", efs_data.waveforms[ii]['shr']))
-        f22.write(struct.pack("i", efs_data.waveforms[ii]['smn']))
-        f22.write(struct.pack("f", efs_data.waveforms[ii]['compazi']))
-        f22.write(struct.pack("f", efs_data.waveforms[ii]['compang']))
-        f22.write(struct.pack("f", efs_data.waveforms[ii]['gain']))
-        f22.write(struct.pack("f", efs_data.waveforms[ii]['f1']))
-        f22.write(struct.pack("f", efs_data.waveforms[ii]['f2']))
-        f22.write(struct.pack("f", efs_data.waveforms[ii]['dt']))
-        f22.write(struct.pack("f", efs_data.waveforms[ii]['ssc']))
-        f22.write(struct.pack("f", efs_data.waveforms[ii]['tdif']))
-        f22.write(struct.pack("f", efs_data.waveforms[ii]['slat']))
-        f22.write(struct.pack("f", efs_data.waveforms[ii]['slon']))
-        f22.write(struct.pack("f", efs_data.waveforms[ii]['selev']))
-        f22.write(struct.pack("f", efs_data.waveforms[ii]['deldist']))
-        f22.write(struct.pack("f", efs_data.waveforms[ii]['sazi']))
-        f22.write(struct.pack("f", efs_data.waveforms[ii]['qazi']))
-        f22.write(struct.pack("f", efs_data.waveforms[ii]['pick1']))
-        f22.write(struct.pack("f", efs_data.waveforms[ii]['pick2']))
-        f22.write(struct.pack("f", efs_data.waveforms[ii]['pick3']))
-        f22.write(struct.pack("f", efs_data.waveforms[ii]['pick4'] * 0 - 99))
-
-        for idum in range(0, 20):
-            f22.write(struct.pack("i", idum * 0))
-
-        # f22.write(bytearray(efs_data.waveforms[ii]['data']))
-        # np.array(efs_data.waveforms[ii]['data'], dtype=np.uint32).tofile(f22)
-        tmp1 = efs_data.waveforms[ii]['data']
-        np.array(tmp1, dtype = np.int32).tofile(f22)
-
-    f22.close()
-
-
-# write efs based on the EFS class
-# bytepost int64
-# time series float64
-def export_efs_i64_f32(EFSPATH, efsname, efs_data):
-    fname2 = EFSPATH + efsname
-    f22 = open(fname2, "wb")
-
-    # write file header
-    # arr = struct.pack("i", efs_data.fhead['bytetype'])
-    f22.write(struct.pack("i", efs_data.fhead['bytetype']))
-    f22.write(struct.pack("i", efs_data.fhead['eheadtype']))
-    f22.write(struct.pack("i", efs_data.fhead['nbytes_ehead']))
-    f22.write(struct.pack("i", efs_data.fhead['tsheadtype']))
-    f22.write(struct.pack("i", efs_data.fhead['nbytes_tshead']))
-
-    # write event header
-    f22.write(struct.pack("40s", efs_data.ehead['efslabel'].encode()))
-    f22.write(struct.pack("40s", efs_data.ehead['datasource'].encode()))
-    f22.write(struct.pack("i", efs_data.ehead['maxnumts']))
-    f22.write(struct.pack("i", efs_data.ehead['numts']))
-    f22.write(struct.pack("i", efs_data.ehead['cuspid']))
-    f22.write(struct.pack("4s", efs_data.ehead['qtype'].encode()))
-    f22.write(struct.pack("4s", efs_data.ehead['qmag1type'].encode()))
-    f22.write(struct.pack("4s", efs_data.ehead['qmag2type'].encode()))
-    f22.write(struct.pack("4s", efs_data.ehead['qmag3type'].encode()))
-    f22.write(struct.pack("4s", efs_data.ehead['qmomenttype'].encode()))
-    f22.write(struct.pack("4s", efs_data.ehead['qlocqual'].encode()))
-    f22.write(struct.pack("4s", efs_data.ehead['qfocalqual'].encode()))
-    f22.write(struct.pack("f", efs_data.ehead['qlat']))
-    f22.write(struct.pack("f", efs_data.ehead['qlon']))
-    f22.write(struct.pack("f", efs_data.ehead['qdep']))
-    f22.write(struct.pack("f", efs_data.ehead['qsc']))
-    f22.write(struct.pack("f", efs_data.ehead['qmag1']))
-    f22.write(struct.pack("f", efs_data.ehead['qmag2']))
-    f22.write(struct.pack("f", efs_data.ehead['qmag3']))
-    f22.write(struct.pack("f", efs_data.ehead['qmoment']))
-    f22.write(struct.pack("f", efs_data.ehead['qstrike']))
-    f22.write(struct.pack("f", efs_data.ehead['qdip']))
-    f22.write(struct.pack("f", efs_data.ehead['qrake']))
-    f22.write(struct.pack("i", efs_data.ehead['qyr']))
-    f22.write(struct.pack("i", efs_data.ehead['qmon']))
-    f22.write(struct.pack("i", efs_data.ehead['qdy']))
-    f22.write(struct.pack("i", efs_data.ehead['qhr']))
-    f22.write(struct.pack("i", efs_data.ehead['qmn']))
-
-    # 20 4-byte field
-    for idum in range(0, 20):
-        f22.write(struct.pack("i", idum * 0))
-
-    # byte positions for all time series
-    for ipos in range(0, efs_data.ehead['numts']):
-        f22.write(struct.pack("q", efs_data.ehead['bytepos'][ipos]))
-
-    # ilen = 100000
-    # np.array(np.zeros(ilen*efs_data.ehead['numts']), dtype=np.uint32).tofile(f22)
-
-    for ii in range(0, efs_data.ehead['numts']):
-
-        f22.seek(efs_data.ehead['bytepos'][ii])
-        f22.write(struct.pack("8s", efs_data.waveforms[ii]['stname'].encode()))
-        f22.write(struct.pack("8s", efs_data.waveforms[ii]['loccode'].encode()))
-        f22.write(struct.pack("8s", efs_data.waveforms[ii]['datasource'].encode()))
-        f22.write(struct.pack("8s", efs_data.waveforms[ii]['sensor'].encode()))
-        f22.write(struct.pack("8s", efs_data.waveforms[ii]['units'].encode()))
-        f22.write(struct.pack("4s", efs_data.waveforms[ii]['chnm'].encode()))
-        f22.write(struct.pack("4s", efs_data.waveforms[ii]['stype'].encode()))
-        f22.write(struct.pack("4s", efs_data.waveforms[ii]['dva'].encode()))
-        f22.write(struct.pack("4s", efs_data.waveforms[ii]['pick1q'].encode()))
-        f22.write(struct.pack("4s", efs_data.waveforms[ii]['pick2q'].encode()))
-        f22.write(struct.pack("4s", efs_data.waveforms[ii]['pick3q'].encode()))
-        f22.write(struct.pack("4s", efs_data.waveforms[ii]['pick4q'].encode()))
-        f22.write(struct.pack("4s", efs_data.waveforms[ii]['pick1name'].encode()))
-        f22.write(struct.pack("4s", efs_data.waveforms[ii]['pick2name'].encode()))
-        f22.write(struct.pack("4s", efs_data.waveforms[ii]['pick3name'].encode()))
-        f22.write(struct.pack("4s", efs_data.waveforms[ii]['pick4name'].encode()))
-        f22.write(struct.pack("4s", efs_data.waveforms[ii]['ppolarity'].encode()))
-        f22.write(struct.pack("4s", efs_data.waveforms[ii]['problem'].encode()))
-        f22.write(struct.pack("i", efs_data.waveforms[ii]['npts']))
-        f22.write(struct.pack("i", efs_data.waveforms[ii]['syr']))
-        f22.write(struct.pack("i", efs_data.waveforms[ii]['smon']))
-        f22.write(struct.pack("i", efs_data.waveforms[ii]['sdy']))
-        f22.write(struct.pack("i", efs_data.waveforms[ii]['shr']))
-        f22.write(struct.pack("i", efs_data.waveforms[ii]['smn']))
-        f22.write(struct.pack("f", efs_data.waveforms[ii]['compazi']))
-        f22.write(struct.pack("f", efs_data.waveforms[ii]['compang']))
-        f22.write(struct.pack("f", efs_data.waveforms[ii]['gain']))
-        f22.write(struct.pack("f", efs_data.waveforms[ii]['f1']))
-        f22.write(struct.pack("f", efs_data.waveforms[ii]['f2']))
-        f22.write(struct.pack("f", efs_data.waveforms[ii]['dt']))
-        f22.write(struct.pack("f", efs_data.waveforms[ii]['ssc']))
-        f22.write(struct.pack("f", efs_data.waveforms[ii]['tdif']))
-        f22.write(struct.pack("f", efs_data.waveforms[ii]['slat']))
-        f22.write(struct.pack("f", efs_data.waveforms[ii]['slon']))
-        f22.write(struct.pack("f", efs_data.waveforms[ii]['selev']))
-        f22.write(struct.pack("f", efs_data.waveforms[ii]['deldist']))
-        f22.write(struct.pack("f", efs_data.waveforms[ii]['sazi']))
-        f22.write(struct.pack("f", efs_data.waveforms[ii]['qazi']))
-        f22.write(struct.pack("f", efs_data.waveforms[ii]['pick1']))
-        f22.write(struct.pack("f", efs_data.waveforms[ii]['pick2']))
-        f22.write(struct.pack("f", efs_data.waveforms[ii]['pick3']))
-        f22.write(struct.pack("f", efs_data.waveforms[ii]['pick4'] * 0 - 99))
-
-        for idum in range(0, 20):
-            f22.write(struct.pack("i", idum * 0))
-
-        # f22.write(bytearray(efs_data.waveforms[ii]['data']))
-        # np.array(efs_data.waveforms[ii]['data'], dtype=np.uint32).tofile(f22)
-        tmp1 = efs_data.waveforms[ii]['data']
-        np.array(tmp1, dtype = np.single).tofile(f22)
-
-    f22.close()
 
 
 
