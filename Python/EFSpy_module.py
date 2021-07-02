@@ -7,21 +7,20 @@ import numpy as np
 import matplotlib.pyplot as plt
 import struct
 import obspy
-# creat an eheader from a catalog
 
 
-
-# read efs based on the EFS class
-# bytepos int32
-# time series int32
-class EFS_i32_i32():
+#### EFS Class Definition ###
+class EFS():
     '''
     Class definition for EFS-format data.
     Basic initialization syntax: edata = EFS("path_to_efs_file").
     '''
 
     ### --- Initialization --- ###
-    def __init__(self, efsfname=None):
+    #  efsfname: name of file to read
+    #  prec_wf: precision for waveform arrays, 32 or 64
+    #  prec_bp: precision for byteposition arrays
+    def __init__(self, efsfname=None, prec_wf=32, prec_bp=32):
 
         # initialize fields
         self.fhead = {}
@@ -76,8 +75,11 @@ class EFS_i32_i32():
         for idum in range(0, 20):
             dummy = struct.unpack('i', f.read(4))[0]
 
-        # Get byte positions for all time series
-        bytepos = np.fromfile(f, dtype = np.int32, count = self.ehead['numts'])
+        # Get byte positions for all time series (i64 or i32 arrays)
+        if prec_bp == 64:
+            bytepos = np.fromfile(f, dtype = np.int64, count = self.ehead['numts'])
+        else:
+            bytepos = np.fromfile(f, dtype = np.int32, count = self.ehead['numts'])
         self.ehead['bytepos'] = bytepos
 
         # Now loop over all the time series
@@ -134,8 +136,10 @@ class EFS_i32_i32():
                 dummy = struct.unpack('i', f.read(4))[0]
 
             # Read the time-series itself
-            data = np.fromfile(f, dtype = np.int32, count = tshead['npts'])  # little-endian float32
-            # bytepos = np.fromfile(f, dtype=np.int32, count=self.ehead['numts'])
+            if prec_wf==64:
+                data = np.fromfile(f, dtype = np.float64, count = tshead['npts'])
+            else:
+                data = np.fromfile(f, dtype = np.float32, count = tshead['npts'])
 
             # Bundle tsheader and time-series for this waveform into efsdata, then append to list
             efsdata = tshead
@@ -224,7 +228,7 @@ class EFS_i32_i32():
                         stats['pick_data'][key3] = wf[key3].strip()
 
             # Update stream
-            st += Stream([Trace(data = wf['data'], header = stats)])
+            st += Trace(data = wf['data'], header = stats)
 
         # return Obspy stream
         return st
@@ -232,6 +236,7 @@ class EFS_i32_i32():
         ###########################################################
 
     ### Function to Convert From ObsPy Stream to EFS
+    # (todo: bytepos?)
     def from_obspy(st, evhead={}, invs={}):
 
         '''
@@ -248,7 +253,11 @@ class EFS_i32_i32():
             raise
 
         # initialize EFS: blank fhead, ehead, waveforms
-        efs_data = EFS_i32_i32()
+        #    choose data type from first trace
+        if (st[0].data[0].dtype=="float64")or(st[0].data[0].dtype=="int64"):
+            efs_data = EFS(None,prec_wf=64)
+        else:
+            efs_data = EFS(None,prec_wf=32)
 
         # set default tshead
         efs_data.fhead['bytetype'] = 1
@@ -296,340 +305,6 @@ class EFS_i32_i32():
             }
 
             # tshead: fields from stats
-
-            if 'invs' in locals():
-                tmp1 = invs.select(station = tr.stats.station)
-                wf['slat'] = tmp1[0].stations[0].latitude
-                wf['slon'] = tmp1[0].stations[0].longitude
-                wf['selev'] = tmp1[0].stations[0].elevation
-
-                tmp2 = geodetics.gps2dist_azimuth(wf['slat'], wf['slon'], evhead['qlat'], evhead['qlon'])
-                wf['qazi'] = tmp2[2]
-                wf['sazi'] = tmp2[1]
-                wf['deldist'] = geodetics.kilometer2degrees(tmp2[0] / 1E3)
-
-            wf['dt'] = tr.stats.delta
-            wf['syr'] = tr.stats.starttime.year
-            wf['smon'] = tr.stats.starttime.month
-            wf['sdy'] = tr.stats.starttime.day
-            wf['shr'] = tr.stats.starttime.hour
-            wf['smn'] = tr.stats.starttime.minute
-            wf['ssc'] = float(tr.stats.starttime.second + tr.stats.starttime.microsecond / 1.e6)
-            wf['gain'] = tr.stats.calib
-            wf['npts'] = tr.stats.npts
-
-            # net, sta, chan, loc
-            wf['stype'] = "{:4s}".format(tr.stats.network)
-            wf['stname'] = "{:8s}".format(tr.stats.station)
-            wf['loccode'] = "{:8s}".format(tr.stats.location)
-            wf['chnm'] = "{:4s}".format(tr.stats.channel)
-
-            # calculate tdif = origin time - starttime
-            try:
-                qtime = UTCDateTime(
-                    efs_data.ehead['qyr'], efs_data.ehead['qmon'], efs_data.ehead['qdy'],
-                    efs_data.ehead['qhr'], efs_data.ehead['qmn'], efs_data.ehead['qsc']
-                )
-                wf['tdif'] = qtime - tr.stats.starttime
-            except:
-                wf['tdif'] = 0.0
-
-            # waveform data
-            wf['data'] = tr.data
-
-            # add to list
-            efs_data.waveforms.append(wf)
-
-        # return
-        return efs_data
-
-# read efs based on the EFS class
-# bytepos int32
-# time series float32
-class EFS_i32_f32():
-    '''
-    Class definition for EFS-format data.
-    Basic initialization syntax: edata = EFS("path_to_efs_file").
-    '''
-
-    ### --- Initialization --- ###
-    def __init__(self, efsfname=None):
-
-        # initialize fields
-        self.fhead = {}
-        self.ehead = {}
-        self.waveforms = []
-
-        # return here without file
-        if efsfname is None:
-            return
-
-        # Open the EFS binary file
-        f = open(efsfname, 'rb')
-
-        # Assemble file header
-        self.fhead['bytetype'] = struct.unpack('i', f.read(4))[0]
-        self.fhead['eheadtype'] = struct.unpack('i', f.read(4))[0]
-        self.fhead['nbytes_ehead'] = struct.unpack('i', f.read(4))[0]
-        self.fhead['tsheadtype'] = struct.unpack('i', f.read(4))[0]
-        self.fhead['nbytes_tshead'] = struct.unpack('i', f.read(4))[0]
-
-        # Assemble event header
-        self.ehead['efslabel'] = f.read(40).decode('UTF-8')
-        self.ehead['datasource'] = f.read(40).decode('UTF-8')
-        self.ehead['maxnumts'] = struct.unpack('i', f.read(4))[0]
-        self.ehead['numts'] = struct.unpack('i', f.read(4))[0]
-        self.ehead['cuspid'] = struct.unpack('i', f.read(4))[0]
-        self.ehead['qtype'] = f.read(4).decode('UTF-8')
-        self.ehead['qmag1type'] = f.read(4).decode('UTF-8')
-        self.ehead['qmag2type'] = f.read(4).decode('UTF-8')
-        self.ehead['qmag3type'] = f.read(4).decode('UTF-8')
-        self.ehead['qmomenttype'] = f.read(4).decode('UTF-8')
-        self.ehead['qlocqual'] = f.read(4).decode('UTF-8')
-        self.ehead['qfocalqual'] = f.read(4).decode('UTF-8')
-        self.ehead['qlat'] = struct.unpack('f', f.read(4))[0]
-        self.ehead['qlon'] = struct.unpack('f', f.read(4))[0]
-        self.ehead['qdep'] = struct.unpack('f', f.read(4))[0]
-        self.ehead['qsc'] = struct.unpack('f', f.read(4))[0]
-        self.ehead['qmag1'] = struct.unpack('f', f.read(4))[0]
-        self.ehead['qmag2'] = struct.unpack('f', f.read(4))[0]
-        self.ehead['qmag3'] = struct.unpack('f', f.read(4))[0]
-        self.ehead['qmoment'] = struct.unpack('f', f.read(4))[0]
-        self.ehead['qstrike'] = struct.unpack('f', f.read(4))[0]
-        self.ehead['qdip'] = struct.unpack('f', f.read(4))[0]
-        self.ehead['qrake'] = struct.unpack('f', f.read(4))[0]
-        self.ehead['qyr'] = struct.unpack('i', f.read(4))[0]
-        self.ehead['qmon'] = struct.unpack('i', f.read(4))[0]
-        self.ehead['qdy'] = struct.unpack('i', f.read(4))[0]
-        self.ehead['qhr'] = struct.unpack('i', f.read(4))[0]
-        self.ehead['qmn'] = struct.unpack('i', f.read(4))[0]
-
-        # 20 4-byte fields reserved for future uses - skip
-        for idum in range(0, 20):
-            dummy = struct.unpack('i', f.read(4))[0]
-
-        # Get byte positions for all time series
-        bytepos = np.fromfile(f, dtype = np.int32, count = self.ehead['numts'])
-        self.ehead['bytepos'] = bytepos
-
-        # Now loop over all the time series
-        for ii in range(0, len(bytepos)):
-
-            # Assemble tshead
-            f.seek(bytepos[ii])
-            tshead = {}
-            tshead['stname'] = f.read(8).decode('UTF-8')
-            tshead['loccode'] = f.read(8).decode('UTF-8')
-            tshead['datasource'] = f.read(8).decode('UTF-8')
-            tshead['sensor'] = f.read(8).decode('UTF-8')
-            tshead['units'] = f.read(8).decode('UTF-8')
-            tshead['chnm'] = f.read(4).decode('UTF-8')
-            tshead['stype'] = f.read(4).decode('UTF-8')
-            tshead['dva'] = f.read(4).decode('UTF-8')
-            tshead['pick1q'] = f.read(4).decode('UTF-8')
-            tshead['pick2q'] = f.read(4).decode('UTF-8')
-            tshead['pick3q'] = f.read(4).decode('UTF-8')
-            tshead['pick4q'] = f.read(4).decode('UTF-8')
-            tshead['pick1name'] = f.read(4).decode('UTF-8')
-            tshead['pick2name'] = f.read(4).decode('UTF-8')
-            tshead['pick3name'] = f.read(4).decode('UTF-8')
-            tshead['pick4name'] = f.read(4).decode('UTF-8')
-            tshead['ppolarity'] = f.read(4).decode('UTF-8')
-            tshead['problem'] = f.read(4).decode('UTF-8')
-            tshead['npts'] = struct.unpack('i', f.read(4))[0]
-            tshead['syr'] = struct.unpack('i', f.read(4))[0]
-            tshead['smon'] = struct.unpack('i', f.read(4))[0]
-            tshead['sdy'] = struct.unpack('i', f.read(4))[0]
-            tshead['shr'] = struct.unpack('i', f.read(4))[0]
-            tshead['smn'] = struct.unpack('i', f.read(4))[0]
-            tshead['compazi'] = struct.unpack('f', f.read(4))[0]
-            tshead['compang'] = struct.unpack('f', f.read(4))[0]
-            tshead['gain'] = struct.unpack('f', f.read(4))[0]
-            tshead['f1'] = struct.unpack('f', f.read(4))[0]
-            tshead['f2'] = struct.unpack('f', f.read(4))[0]
-            tshead['dt'] = struct.unpack('f', f.read(4))[0]
-            tshead['ssc'] = struct.unpack('f', f.read(4))[0]
-            tshead['tdif'] = struct.unpack('f', f.read(4))[0]
-            tshead['slat'] = struct.unpack('f', f.read(4))[0]
-            tshead['slon'] = struct.unpack('f', f.read(4))[0]
-            tshead['selev'] = struct.unpack('f', f.read(4))[0]
-            tshead['deldist'] = struct.unpack('f', f.read(4))[0]
-            tshead['sazi'] = struct.unpack('f', f.read(4))[0]
-            tshead['qazi'] = struct.unpack('f', f.read(4))[0]
-            tshead['pick1'] = struct.unpack('f', f.read(4))[0]
-            tshead['pick2'] = struct.unpack('f', f.read(4))[0]
-            tshead['pick3'] = struct.unpack('f', f.read(4))[0]
-            tshead['pick4'] = struct.unpack('f', f.read(4))[0]
-
-            # 20 4-byte fields reserved for future uses - skip
-            for idum in range(0, 20):
-                dummy = struct.unpack('i', f.read(4))[0]
-
-            # Read the time-series itself
-            data = np.fromfile(f, dtype = np.single, count = tshead['npts'])  # little-endian float32
-            # bytepos = np.fromfile(f, dtype=np.int32, count=self.ehead['numts'])
-
-            # Bundle tsheader and time-series for this waveform into efsdata, then append to list
-            efsdata = tshead
-            efsdata['data'] = data
-            self.waveforms.append(efsdata)
-
-    ###########################################################
-
-    ### Function to convert from EFS to ObsPy Stream
-    def to_obspy(self, keep_evdata=True, keep_stdata=True, keep_pkdata=True):
-
-        '''
-        Function to return obspy stream from EFS.
-        Optional arguments preserve event, station, pick information in the
-        stats dictionary for each trace.
-        '''
-
-        # Error checking
-        try:
-            from obspy.core import Stream, Trace, UTCDateTime
-        except:
-            print('EFS.to_obspy() is not available. ObsPy is not installed.')
-            raise
-
-        # Initialize stream
-        st = Stream()
-
-        # Optional: preserve event information in header
-        if keep_evdata:
-            evdata = {}
-            evdata['evid'] = self.ehead['cuspid']
-            for key in ['qlat', 'qlon', 'qdep', 'qstrike', 'qdip', 'qrake']:
-                if self.ehead[key] != -99.0:
-                    evdata[key] = np.round(self.ehead[key], 6)
-            for imag in range(1, 4):
-                key1, key2 = 'qmag{:}'.format(imag), 'qmag{:}type'.format(imag)
-                if (self.ehead[key1] != 0.0) or (self.ehead[key2] != '    '):
-                    evdata[key1] = np.round(self.ehead[key1], 3)
-                    evdata[key2] = self.ehead[key2].strip()
-
-        # Loop over time
-        for i, wf in enumerate(self.waveforms):
-
-            # Initialize stats for trace
-            stats = {}
-
-            # Assemble mandatory header information
-            stats['delta'] = wf['dt']
-            stats['sampling_rate'] = 1 / wf['dt']
-            if wf['gain'] > 0:
-                stats['calib'] = wf['gain']
-            else:
-                stats['calib'] = 1.0
-            stats['npts'] = wf['npts']
-            stats['network'] = wf['stype'].strip()
-            stats['station'] = wf['stname'].strip()
-            stats['location'] = wf['loccode'].strip()
-            if stats['location'] == '--':
-                stats['location'] = ''
-            stats['channel'] = wf['chnm'].strip()
-            stats['starttime'] = UTCDateTime(wf['syr'], wf['smon'], wf['sdy'],
-                                             wf['shr'], wf['smn'], np.round(wf['ssc'], 5))
-
-            # Optional: preserve event information in header
-            if keep_evdata:
-                stats['event_data'] = evdata
-
-            # Optional: preserve station information in header
-            if keep_stdata:
-                stats['station_data'] = {}
-                for key in ['compazi', 'compang', 'deldist', 'sazi', 'qazi', 'slat', 'slon', 'selev']:
-                    if wf[key] != -99.0:
-                        stats['station_data'][key] = np.round(wf[key], 6)
-
-            # Optional: preserve pick information in header
-            if keep_pkdata:
-                stats['pick_data'] = {}
-                stats['pick_data']['tdif'] = np.round(wf['tdif'], 6)
-                stats['pick_data']['ppolarity'] = wf['ppolarity'].strip()
-                for ipick in range(1, 5):
-                    key1 = 'pick{:}'.format(ipick)
-                    if wf[key1] > 0:
-                        key2, key3 = 'pick{:}name'.format(ipick), 'pick{:}q'.format(ipick)
-                        stats['pick_data'][key1] = np.round(wf[key1], 6)
-                        stats['pick_data'][key2] = wf[key2].strip()
-                        stats['pick_data'][key3] = wf[key3].strip()
-
-            # Update stream
-            st += Stream([Trace(data = wf['data'], header = stats)])
-
-        # return Obspy stream
-        return st
-
-    ###########################################################
-    ###########################################################
-
-    ### Function to Convert From ObsPy Stream to EFS
-    def from_obspy(st, evhead={}, invs={}):
-
-        '''
-        Function to return EFS from obspy stream.
-        Optional argument for event header to populate EFS event header field.
-        '''
-
-        # Error checking
-        try:
-            from obspy.core import UTCDateTime
-            from obspy import geodetics
-        except:
-            print('EFS.from_obspy() is not available. ObsPy is not installed.')
-            raise
-
-        # initialize EFS: blank fhead, ehead, waveforms
-        efs_data = EFS_i32_f32()
-
-        # set default tshead
-        efs_data.fhead['bytetype'] = 1
-        efs_data.fhead['eheadtype'] = 1
-        efs_data.fhead['nbytes_ehead'] = 264
-        efs_data.fhead['tsheadtype'] = 1
-        efs_data.fhead['nbytes_tshead'] = 268
-
-        # set up ehead, reading from evhead where possible
-        for key in ['efslabel', 'datasource']:
-            if key in evhead:
-                efs_data.ehead[key] = '{:40s}'.format(evhead[key])
-            else:
-                efs_data.ehead[key] = '                                        '
-        for key in ['qtype', 'qmag1type', 'qmag2type', 'qmag3type',
-                    'qmomenttype', 'qlocqual', 'qfocalqual']:
-            if key in evhead:
-                efs_data.ehead[key] = '{:4s}'.format(evhead[key])
-            else:
-                efs_data.ehead[key] = '    '
-        for key in ['qlat', 'qlon', 'qdep', 'qsc', 'qmag1', 'qmag2', 'qmag3',
-                    'qmoment', 'qstrike', 'qdip', 'qrake', 'qyr', 'qmon',
-                    'qdy', 'qhr', 'qmn', 'cuspid']:
-            if key in evhead:
-                efs_data.ehead[key] = evhead[key]
-            elif key in ['qlat', 'qlon', 'qdep', 'qsec', 'qmoment']:
-                efs_data.ehead[key] = -999.
-            else:
-                efs_data.ehead[key] = -999
-
-        # loop over traces in stream
-        efs_data.ehead['numts'] = len(st)
-        efs_data.ehead['maxnumts'] = len(st)
-        for ii, tr in enumerate(st):
-
-            # tshead: blank fields
-            wf = {
-                'datasource': '        ', 'sensor': '        ', 'units': '        ', 'dva': '    ',
-                'pick1q': '    ', 'pick2q': '    ', 'pick3q': '    ', 'pick4q': '    ',
-                'pick1name': '    ', 'pick2name': '    ', 'pick3name': '    ', 'pick4name': '    ',
-                'ppolarity': '    ', 'compazi': -99.0, 'compang': -99.0, 'f1': -1.0, 'f2': -1.0,
-                'deldist': -99.0, 'slat': -99.0, 'slon': -99.0, 'selev': -99.0,
-                'sazi': -99.0, 'qazi': -99.0, 'pick1': 0.0, 'pick2': 0.0, 'pick3': 0.0, 'pick4': 0.0,
-                'problem': '    '
-            }
-
-            # tshead: fields from stats
-
             if 'invs' in locals():
                 tmp1 = invs.select(station = tr.stats.station)
                 wf['slat'] = tmp1[0].stations[0].latitude
@@ -677,696 +352,18 @@ class EFS_i32_f32():
         return efs_data
 
 
-# read efs based on the EFS class
-# bytepos int64
-# time series int32
-class EFS_i64_i32():
-    '''
-    Class definition for EFS-format data.
-    Basic initialization syntax: edata = EFS("path_to_efs_file").
-    '''
-
-    ### --- Initialization --- ###
-    def __init__(self, efsfname=None):
-
-        # initialize fields
-        self.fhead = {}
-        self.ehead = {}
-        self.waveforms = []
-
-        # return here without file
-        if efsfname is None:
-            return
-
-        # Open the EFS binary file
-        f = open(efsfname, 'rb')
-
-        # Assemble file header
-        self.fhead['bytetype'] = struct.unpack('i', f.read(4))[0]
-        self.fhead['eheadtype'] = struct.unpack('i', f.read(4))[0]
-        self.fhead['nbytes_ehead'] = struct.unpack('i', f.read(4))[0]
-        self.fhead['tsheadtype'] = struct.unpack('i', f.read(4))[0]
-        self.fhead['nbytes_tshead'] = struct.unpack('i', f.read(4))[0]
-
-        # Assemble event header
-        self.ehead['efslabel'] = f.read(40).decode('UTF-8')
-        self.ehead['datasource'] = f.read(40).decode('UTF-8')
-        self.ehead['maxnumts'] = struct.unpack('i', f.read(4))[0]
-        self.ehead['numts'] = struct.unpack('i', f.read(4))[0]
-        self.ehead['cuspid'] = struct.unpack('i', f.read(4))[0]
-        self.ehead['qtype'] = f.read(4).decode('UTF-8')
-        self.ehead['qmag1type'] = f.read(4).decode('UTF-8')
-        self.ehead['qmag2type'] = f.read(4).decode('UTF-8')
-        self.ehead['qmag3type'] = f.read(4).decode('UTF-8')
-        self.ehead['qmomenttype'] = f.read(4).decode('UTF-8')
-        self.ehead['qlocqual'] = f.read(4).decode('UTF-8')
-        self.ehead['qfocalqual'] = f.read(4).decode('UTF-8')
-        self.ehead['qlat'] = struct.unpack('f', f.read(4))[0]
-        self.ehead['qlon'] = struct.unpack('f', f.read(4))[0]
-        self.ehead['qdep'] = struct.unpack('f', f.read(4))[0]
-        self.ehead['qsc'] = struct.unpack('f', f.read(4))[0]
-        self.ehead['qmag1'] = struct.unpack('f', f.read(4))[0]
-        self.ehead['qmag2'] = struct.unpack('f', f.read(4))[0]
-        self.ehead['qmag3'] = struct.unpack('f', f.read(4))[0]
-        self.ehead['qmoment'] = struct.unpack('f', f.read(4))[0]
-        self.ehead['qstrike'] = struct.unpack('f', f.read(4))[0]
-        self.ehead['qdip'] = struct.unpack('f', f.read(4))[0]
-        self.ehead['qrake'] = struct.unpack('f', f.read(4))[0]
-        self.ehead['qyr'] = struct.unpack('i', f.read(4))[0]
-        self.ehead['qmon'] = struct.unpack('i', f.read(4))[0]
-        self.ehead['qdy'] = struct.unpack('i', f.read(4))[0]
-        self.ehead['qhr'] = struct.unpack('i', f.read(4))[0]
-        self.ehead['qmn'] = struct.unpack('i', f.read(4))[0]
-
-        # 20 4-byte fields reserved for future uses - skip
-        for idum in range(0, 20):
-            dummy = struct.unpack('i', f.read(4))[0]
-
-        # Get byte positions for all time series
-        bytepos = np.fromfile(f, dtype = np.int64, count = self.ehead['numts'])
-        self.ehead['bytepos'] = bytepos
-
-        # Now loop over all the time series
-        for ii in range(0, len(bytepos)):
-
-            # Assemble tshead
-            f.seek(bytepos[ii])
-            tshead = {}
-            tshead['stname'] = f.read(8).decode('UTF-8')
-            tshead['loccode'] = f.read(8).decode('UTF-8')
-            tshead['datasource'] = f.read(8).decode('UTF-8')
-            tshead['sensor'] = f.read(8).decode('UTF-8')
-            tshead['units'] = f.read(8).decode('UTF-8')
-            tshead['chnm'] = f.read(4).decode('UTF-8')
-            tshead['stype'] = f.read(4).decode('UTF-8')
-            tshead['dva'] = f.read(4).decode('UTF-8')
-            tshead['pick1q'] = f.read(4).decode('UTF-8')
-            tshead['pick2q'] = f.read(4).decode('UTF-8')
-            tshead['pick3q'] = f.read(4).decode('UTF-8')
-            tshead['pick4q'] = f.read(4).decode('UTF-8')
-            tshead['pick1name'] = f.read(4).decode('UTF-8')
-            tshead['pick2name'] = f.read(4).decode('UTF-8')
-            tshead['pick3name'] = f.read(4).decode('UTF-8')
-            tshead['pick4name'] = f.read(4).decode('UTF-8')
-            tshead['ppolarity'] = f.read(4).decode('UTF-8')
-            tshead['problem'] = f.read(4).decode('UTF-8')
-            tshead['npts'] = struct.unpack('i', f.read(4))[0]
-            tshead['syr'] = struct.unpack('i', f.read(4))[0]
-            tshead['smon'] = struct.unpack('i', f.read(4))[0]
-            tshead['sdy'] = struct.unpack('i', f.read(4))[0]
-            tshead['shr'] = struct.unpack('i', f.read(4))[0]
-            tshead['smn'] = struct.unpack('i', f.read(4))[0]
-            tshead['compazi'] = struct.unpack('f', f.read(4))[0]
-            tshead['compang'] = struct.unpack('f', f.read(4))[0]
-            tshead['gain'] = struct.unpack('f', f.read(4))[0]
-            tshead['f1'] = struct.unpack('f', f.read(4))[0]
-            tshead['f2'] = struct.unpack('f', f.read(4))[0]
-            tshead['dt'] = struct.unpack('f', f.read(4))[0]
-            tshead['ssc'] = struct.unpack('f', f.read(4))[0]
-            tshead['tdif'] = struct.unpack('f', f.read(4))[0]
-            tshead['slat'] = struct.unpack('f', f.read(4))[0]
-            tshead['slon'] = struct.unpack('f', f.read(4))[0]
-            tshead['selev'] = struct.unpack('f', f.read(4))[0]
-            tshead['deldist'] = struct.unpack('f', f.read(4))[0]
-            tshead['sazi'] = struct.unpack('f', f.read(4))[0]
-            tshead['qazi'] = struct.unpack('f', f.read(4))[0]
-            tshead['pick1'] = struct.unpack('f', f.read(4))[0]
-            tshead['pick2'] = struct.unpack('f', f.read(4))[0]
-            tshead['pick3'] = struct.unpack('f', f.read(4))[0]
-            tshead['pick4'] = struct.unpack('f', f.read(4))[0]
-
-            # 20 4-byte fields reserved for future uses - skip
-            for idum in range(0, 20):
-                dummy = struct.unpack('i', f.read(4))[0]
-
-            # Read the time-series itself
-            data = np.fromfile(f, dtype = np.int32, count = tshead['npts'])  # little-endian float32
-            # bytepos = np.fromfile(f, dtype=np.int32, count=self.ehead['numts'])
-
-            # Bundle tsheader and time-series for this waveform into efsdata, then append to list
-            efsdata = tshead
-            efsdata['data'] = data
-            self.waveforms.append(efsdata)
-
-    ###########################################################
-
-    ### Function to convert from EFS to ObsPy Stream
-    def to_obspy(self, keep_evdata=True, keep_stdata=True, keep_pkdata=True):
-
-        '''
-        Function to return obspy stream from EFS.
-        Optional arguments preserve event, station, pick information in the
-        stats dictionary for each trace.
-        '''
-
-        # Error checking
-        try:
-            from obspy.core import Stream, Trace, UTCDateTime
-        except:
-            print('EFS.to_obspy() is not available. ObsPy is not installed.')
-            raise
-
-        # Initialize stream
-        st = Stream()
-
-        # Optional: preserve event information in header
-        if keep_evdata:
-            evdata = {}
-            evdata['evid'] = self.ehead['cuspid']
-            for key in ['qlat', 'qlon', 'qdep', 'qstrike', 'qdip', 'qrake']:
-                if self.ehead[key] != -99.0:
-                    evdata[key] = np.round(self.ehead[key], 6)
-            for imag in range(1, 4):
-                key1, key2 = 'qmag{:}'.format(imag), 'qmag{:}type'.format(imag)
-                if (self.ehead[key1] != 0.0) or (self.ehead[key2] != '    '):
-                    evdata[key1] = np.round(self.ehead[key1], 3)
-                    evdata[key2] = self.ehead[key2].strip()
-
-        # Loop over time
-        for i, wf in enumerate(self.waveforms):
-
-            # Initialize stats for trace
-            stats = {}
-
-            # Assemble mandatory header information
-            stats['delta'] = wf['dt']
-            stats['sampling_rate'] = 1 / wf['dt']
-            if wf['gain'] > 0:
-                stats['calib'] = wf['gain']
-            else:
-                stats['calib'] = 1.0
-            stats['npts'] = wf['npts']
-            stats['network'] = wf['stype'].strip()
-            stats['station'] = wf['stname'].strip()
-            stats['location'] = wf['loccode'].strip()
-            if stats['location'] == '--':
-                stats['location'] = ''
-            stats['channel'] = wf['chnm'].strip()
-            stats['starttime'] = UTCDateTime(wf['syr'], wf['smon'], wf['sdy'],
-                                             wf['shr'], wf['smn'], np.round(wf['ssc'], 5))
-
-            # Optional: preserve event information in header
-            if keep_evdata:
-                stats['event_data'] = evdata
-
-            # Optional: preserve station information in header
-            if keep_stdata:
-                stats['station_data'] = {}
-                for key in ['compazi', 'compang', 'deldist', 'sazi', 'qazi', 'slat', 'slon', 'selev']:
-                    if wf[key] != -99.0:
-                        stats['station_data'][key] = np.round(wf[key], 6)
-
-            # Optional: preserve pick information in header
-            if keep_pkdata:
-                stats['pick_data'] = {}
-                stats['pick_data']['tdif'] = np.round(wf['tdif'], 6)
-                stats['pick_data']['ppolarity'] = wf['ppolarity'].strip()
-                for ipick in range(1, 5):
-                    key1 = 'pick{:}'.format(ipick)
-                    if wf[key1] > 0:
-                        key2, key3 = 'pick{:}name'.format(ipick), 'pick{:}q'.format(ipick)
-                        stats['pick_data'][key1] = np.round(wf[key1], 6)
-                        stats['pick_data'][key2] = wf[key2].strip()
-                        stats['pick_data'][key3] = wf[key3].strip()
-
-            # Update stream
-            st += Stream([Trace(data = wf['data'], header = stats)])
-
-        # return Obspy stream
-        return st
-
-    ###########################################################
-    ###########################################################
-
-    ### Function to Convert From ObsPy Stream to EFS
-    def from_obspy(st, evhead={}, invs={}):
-
-        '''
-        Function to return EFS from obspy stream.
-        Optional argument for event header to populate EFS event header field.
-        '''
-
-        # Error checking
-        try:
-            from obspy.core import UTCDateTime
-            from obspy import geodetics
-        except:
-            print('EFS.from_obspy() is not available. ObsPy is not installed.')
-            raise
-
-        # initialize EFS: blank fhead, ehead, waveforms
-        efs_data = EFS_i64_i32()
-
-        # set default tshead
-        efs_data.fhead['bytetype'] = 1
-        efs_data.fhead['eheadtype'] = 1
-        efs_data.fhead['nbytes_ehead'] = 264
-        efs_data.fhead['tsheadtype'] = 1
-        efs_data.fhead['nbytes_tshead'] = 268
-
-        # set up ehead, reading from evhead where possible
-        for key in ['efslabel', 'datasource']:
-            if key in evhead:
-                efs_data.ehead[key] = '{:40s}'.format(evhead[key])
-            else:
-                efs_data.ehead[key] = '                                        '
-        for key in ['qtype', 'qmag1type', 'qmag2type', 'qmag3type',
-                    'qmomenttype', 'qlocqual', 'qfocalqual']:
-            if key in evhead:
-                efs_data.ehead[key] = '{:4s}'.format(evhead[key])
-            else:
-                efs_data.ehead[key] = '    '
-        for key in ['qlat', 'qlon', 'qdep', 'qsc', 'qmag1', 'qmag2', 'qmag3',
-                    'qmoment', 'qstrike', 'qdip', 'qrake', 'qyr', 'qmon',
-                    'qdy', 'qhr', 'qmn', 'cuspid']:
-            if key in evhead:
-                efs_data.ehead[key] = evhead[key]
-            elif key in ['qlat', 'qlon', 'qdep', 'qsec', 'qmoment']:
-                efs_data.ehead[key] = -999.
-            else:
-                efs_data.ehead[key] = -999
-
-        # loop over traces in stream
-        efs_data.ehead['numts'] = len(st)
-        efs_data.ehead['maxnumts'] = len(st)
-        for ii, tr in enumerate(st):
-
-            # tshead: blank fields
-            wf = {
-                'datasource': '        ', 'sensor': '        ', 'units': '        ', 'dva': '    ',
-                'pick1q': '    ', 'pick2q': '    ', 'pick3q': '    ', 'pick4q': '    ',
-                'pick1name': '    ', 'pick2name': '    ', 'pick3name': '    ', 'pick4name': '    ',
-                'ppolarity': '    ', 'compazi': -99.0, 'compang': -99.0, 'f1': -1.0, 'f2': -1.0,
-                'deldist': -99.0, 'slat': -99.0, 'slon': -99.0, 'selev': -99.0,
-                'sazi': -99.0, 'qazi': -99.0, 'pick1': 0.0, 'pick2': 0.0, 'pick3': 0.0, 'pick4': 0.0,
-                'problem': '    '
-            }
-
-            # tshead: fields from stats
-
-            if 'invs' in locals():
-                tmp1 = invs.select(station = tr.stats.station)
-                wf['slat'] = tmp1[0].stations[0].latitude
-                wf['slon'] = tmp1[0].stations[0].longitude
-                wf['selev'] = tmp1[0].stations[0].elevation
-
-                tmp2 = geodetics.gps2dist_azimuth(wf['slat'], wf['slon'], evhead['qlat'], evhead['qlon'])
-                wf['qazi'] = tmp2[2]
-                wf['sazi'] = tmp2[1]
-                wf['deldist'] = geodetics.kilometer2degrees(tmp2[0] / 1E3)
-
-            wf['dt'] = tr.stats.delta
-            wf['syr'] = tr.stats.starttime.year
-            wf['smon'] = tr.stats.starttime.month
-            wf['sdy'] = tr.stats.starttime.day
-            wf['shr'] = tr.stats.starttime.hour
-            wf['smn'] = tr.stats.starttime.minute
-            wf['ssc'] = float(tr.stats.starttime.second + tr.stats.starttime.microsecond / 1.e6)
-            wf['gain'] = tr.stats.calib
-            wf['npts'] = tr.stats.npts
-
-            # net, sta, chan, loc
-            wf['stype'] = "{:4s}".format(tr.stats.network)
-            wf['stname'] = "{:8s}".format(tr.stats.station)
-            wf['loccode'] = "{:8s}".format(tr.stats.location)
-            wf['chnm'] = "{:4s}".format(tr.stats.channel)
-
-            # calculate tdif = origin time - starttime
-            try:
-                qtime = UTCDateTime(
-                    efs_data.ehead['qyr'], efs_data.ehead['qmon'], efs_data.ehead['qdy'],
-                    efs_data.ehead['qhr'], efs_data.ehead['qmn'], efs_data.ehead['qsc']
-                )
-                wf['tdif'] = qtime - tr.stats.starttime
-            except:
-                wf['tdif'] = 0.0
-
-            # waveform data
-            wf['data'] = tr.data
-
-            # add to list
-            efs_data.waveforms.append(wf)
-
-        # return
-        return efs_data
-
-
-# read efs based on the EFS class
-# bytepos int64
-# time series float32
-class EFS_i64_f32():
-    '''
-    Class definition for EFS-format data.
-    Basic initialization syntax: edata = EFS("path_to_efs_file").
-    '''
-
-    ### --- Initialization --- ###
-    def __init__(self, efsfname=None):
-
-        # initialize fields
-        self.fhead = {}
-        self.ehead = {}
-        self.waveforms = []
-
-        # return here without file
-        if efsfname is None:
-            return
-
-        # Open the EFS binary file
-        f = open(efsfname, 'rb')
-
-        # Assemble file header
-        self.fhead['bytetype'] = struct.unpack('i', f.read(4))[0]
-        self.fhead['eheadtype'] = struct.unpack('i', f.read(4))[0]
-        self.fhead['nbytes_ehead'] = struct.unpack('i', f.read(4))[0]
-        self.fhead['tsheadtype'] = struct.unpack('i', f.read(4))[0]
-        self.fhead['nbytes_tshead'] = struct.unpack('i', f.read(4))[0]
-
-        # Assemble event header
-        self.ehead['efslabel'] = f.read(40).decode('UTF-8')
-        self.ehead['datasource'] = f.read(40).decode('UTF-8')
-        self.ehead['maxnumts'] = struct.unpack('i', f.read(4))[0]
-        self.ehead['numts'] = struct.unpack('i', f.read(4))[0]
-        self.ehead['cuspid'] = struct.unpack('i', f.read(4))[0]
-        self.ehead['qtype'] = f.read(4).decode('UTF-8')
-        self.ehead['qmag1type'] = f.read(4).decode('UTF-8')
-        self.ehead['qmag2type'] = f.read(4).decode('UTF-8')
-        self.ehead['qmag3type'] = f.read(4).decode('UTF-8')
-        self.ehead['qmomenttype'] = f.read(4).decode('UTF-8')
-        self.ehead['qlocqual'] = f.read(4).decode('UTF-8')
-        self.ehead['qfocalqual'] = f.read(4).decode('UTF-8')
-        self.ehead['qlat'] = struct.unpack('f', f.read(4))[0]
-        self.ehead['qlon'] = struct.unpack('f', f.read(4))[0]
-        self.ehead['qdep'] = struct.unpack('f', f.read(4))[0]
-        self.ehead['qsc'] = struct.unpack('f', f.read(4))[0]
-        self.ehead['qmag1'] = struct.unpack('f', f.read(4))[0]
-        self.ehead['qmag2'] = struct.unpack('f', f.read(4))[0]
-        self.ehead['qmag3'] = struct.unpack('f', f.read(4))[0]
-        self.ehead['qmoment'] = struct.unpack('f', f.read(4))[0]
-        self.ehead['qstrike'] = struct.unpack('f', f.read(4))[0]
-        self.ehead['qdip'] = struct.unpack('f', f.read(4))[0]
-        self.ehead['qrake'] = struct.unpack('f', f.read(4))[0]
-        self.ehead['qyr'] = struct.unpack('i', f.read(4))[0]
-        self.ehead['qmon'] = struct.unpack('i', f.read(4))[0]
-        self.ehead['qdy'] = struct.unpack('i', f.read(4))[0]
-        self.ehead['qhr'] = struct.unpack('i', f.read(4))[0]
-        self.ehead['qmn'] = struct.unpack('i', f.read(4))[0]
-
-        # 20 4-byte fields reserved for future uses - skip
-        for idum in range(0, 20):
-            dummy = struct.unpack('i', f.read(4))[0]
-
-        # Get byte positions for all time series
-        bytepos = np.fromfile(f, dtype = np.int64, count = self.ehead['numts'])
-        self.ehead['bytepos'] = bytepos
-
-        # Now loop over all the time series
-        for ii in range(0, len(bytepos)):
-
-            # Assemble tshead
-            f.seek(bytepos[ii])
-            tshead = {}
-            tshead['stname'] = f.read(8).decode('UTF-8')
-            tshead['loccode'] = f.read(8).decode('UTF-8')
-            tshead['datasource'] = f.read(8).decode('UTF-8')
-            tshead['sensor'] = f.read(8).decode('UTF-8')
-            tshead['units'] = f.read(8).decode('UTF-8')
-            tshead['chnm'] = f.read(4).decode('UTF-8')
-            tshead['stype'] = f.read(4).decode('UTF-8')
-            tshead['dva'] = f.read(4).decode('UTF-8')
-            tshead['pick1q'] = f.read(4).decode('UTF-8')
-            tshead['pick2q'] = f.read(4).decode('UTF-8')
-            tshead['pick3q'] = f.read(4).decode('UTF-8')
-            tshead['pick4q'] = f.read(4).decode('UTF-8')
-            tshead['pick1name'] = f.read(4).decode('UTF-8')
-            tshead['pick2name'] = f.read(4).decode('UTF-8')
-            tshead['pick3name'] = f.read(4).decode('UTF-8')
-            tshead['pick4name'] = f.read(4).decode('UTF-8')
-            tshead['ppolarity'] = f.read(4).decode('UTF-8')
-            tshead['problem'] = f.read(4).decode('UTF-8')
-            tshead['npts'] = struct.unpack('i', f.read(4))[0]
-            tshead['syr'] = struct.unpack('i', f.read(4))[0]
-            tshead['smon'] = struct.unpack('i', f.read(4))[0]
-            tshead['sdy'] = struct.unpack('i', f.read(4))[0]
-            tshead['shr'] = struct.unpack('i', f.read(4))[0]
-            tshead['smn'] = struct.unpack('i', f.read(4))[0]
-            tshead['compazi'] = struct.unpack('f', f.read(4))[0]
-            tshead['compang'] = struct.unpack('f', f.read(4))[0]
-            tshead['gain'] = struct.unpack('f', f.read(4))[0]
-            tshead['f1'] = struct.unpack('f', f.read(4))[0]
-            tshead['f2'] = struct.unpack('f', f.read(4))[0]
-            tshead['dt'] = struct.unpack('f', f.read(4))[0]
-            tshead['ssc'] = struct.unpack('f', f.read(4))[0]
-            tshead['tdif'] = struct.unpack('f', f.read(4))[0]
-            tshead['slat'] = struct.unpack('f', f.read(4))[0]
-            tshead['slon'] = struct.unpack('f', f.read(4))[0]
-            tshead['selev'] = struct.unpack('f', f.read(4))[0]
-            tshead['deldist'] = struct.unpack('f', f.read(4))[0]
-            tshead['sazi'] = struct.unpack('f', f.read(4))[0]
-            tshead['qazi'] = struct.unpack('f', f.read(4))[0]
-            tshead['pick1'] = struct.unpack('f', f.read(4))[0]
-            tshead['pick2'] = struct.unpack('f', f.read(4))[0]
-            tshead['pick3'] = struct.unpack('f', f.read(4))[0]
-            tshead['pick4'] = struct.unpack('f', f.read(4))[0]
-
-            # 20 4-byte fields reserved for future uses - skip
-            for idum in range(0, 20):
-                dummy = struct.unpack('i', f.read(4))[0]
-
-            # Read the time-series itself
-            data = np.fromfile(f, dtype = np.single, count = tshead['npts'])  # little-endian float32
-            # bytepos = np.fromfile(f, dtype=np.int32, count=self.ehead['numts'])
-
-            # Bundle tsheader and time-series for this waveform into efsdata, then append to list
-            efsdata = tshead
-            efsdata['data'] = data
-            self.waveforms.append(efsdata)
-
-    ###########################################################
-
-    ### Function to convert from EFS to ObsPy Stream
-    def to_obspy(self, keep_evdata=True, keep_stdata=True, keep_pkdata=True):
-
-        '''
-        Function to return obspy stream from EFS.
-        Optional arguments preserve event, station, pick information in the
-        stats dictionary for each trace.
-        '''
-
-        # Error checking
-        try:
-            from obspy.core import Stream, Trace, UTCDateTime
-        except:
-            print('EFS.to_obspy() is not available. ObsPy is not installed.')
-            raise
-
-        # Initialize stream
-        st = Stream()
-
-        # Optional: preserve event information in header
-        if keep_evdata:
-            evdata = {}
-            evdata['evid'] = self.ehead['cuspid']
-            for key in ['qlat', 'qlon', 'qdep', 'qstrike', 'qdip', 'qrake']:
-                if self.ehead[key] != -99.0:
-                    evdata[key] = np.round(self.ehead[key], 6)
-            for imag in range(1, 4):
-                key1, key2 = 'qmag{:}'.format(imag), 'qmag{:}type'.format(imag)
-                if (self.ehead[key1] != 0.0) or (self.ehead[key2] != '    '):
-                    evdata[key1] = np.round(self.ehead[key1], 3)
-                    evdata[key2] = self.ehead[key2].strip()
-
-        # Loop over time
-        for i, wf in enumerate(self.waveforms):
-
-            # Initialize stats for trace
-            stats = {}
-
-            # Assemble mandatory header information
-            stats['delta'] = wf['dt']
-            stats['sampling_rate'] = 1 / wf['dt']
-            if wf['gain'] > 0:
-                stats['calib'] = wf['gain']
-            else:
-                stats['calib'] = 1.0
-            stats['npts'] = wf['npts']
-            stats['network'] = wf['stype'].strip()
-            stats['station'] = wf['stname'].strip()
-            stats['location'] = wf['loccode'].strip()
-            if stats['location'] == '--':
-                stats['location'] = ''
-            stats['channel'] = wf['chnm'].strip()
-            stats['starttime'] = UTCDateTime(wf['syr'], wf['smon'], wf['sdy'],
-                                             wf['shr'], wf['smn'], np.round(wf['ssc'], 5))
-
-            # Optional: preserve event information in header
-            if keep_evdata:
-                stats['event_data'] = evdata
-
-            # Optional: preserve station information in header
-            if keep_stdata:
-                stats['station_data'] = {}
-                for key in ['compazi', 'compang', 'deldist', 'sazi', 'qazi', 'slat', 'slon', 'selev']:
-                    if wf[key] != -99.0:
-                        stats['station_data'][key] = np.round(wf[key], 6)
-
-            # Optional: preserve pick information in header
-            if keep_pkdata:
-                stats['pick_data'] = {}
-                stats['pick_data']['tdif'] = np.round(wf['tdif'], 6)
-                stats['pick_data']['ppolarity'] = wf['ppolarity'].strip()
-                for ipick in range(1, 5):
-                    key1 = 'pick{:}'.format(ipick)
-                    if wf[key1] > 0:
-                        key2, key3 = 'pick{:}name'.format(ipick), 'pick{:}q'.format(ipick)
-                        stats['pick_data'][key1] = np.round(wf[key1], 6)
-                        stats['pick_data'][key2] = wf[key2].strip()
-                        stats['pick_data'][key3] = wf[key3].strip()
-
-            # Update stream
-            st += Stream([Trace(data = wf['data'], header = stats)])
-
-        # return Obspy stream
-        return st
-
-    ###########################################################
-    ###########################################################
-
-    ### Function to Convert From ObsPy Stream to EFS
-    def from_obspy(st, evhead={}, invs={}):
-
-        '''
-        Function to return EFS from obspy stream.
-        Optional argument for event header to populate EFS event header field.
-        '''
-
-        # Error checking
-        try:
-            from obspy.core import UTCDateTime
-            from obspy import geodetics
-        except:
-            print('EFS.from_obspy() is not available. ObsPy is not installed.')
-            raise
-
-        # initialize EFS: blank fhead, ehead, waveforms
-        efs_data = EFS_i64_f32()
-
-        # set default tshead
-        efs_data.fhead['bytetype'] = 1
-        efs_data.fhead['eheadtype'] = 1
-        efs_data.fhead['nbytes_ehead'] = 264
-        efs_data.fhead['tsheadtype'] = 1
-        efs_data.fhead['nbytes_tshead'] = 268
-
-        # set up ehead, reading from evhead where possible
-        for key in ['efslabel', 'datasource']:
-            if key in evhead:
-                efs_data.ehead[key] = '{:40s}'.format(evhead[key])
-            else:
-                efs_data.ehead[key] = '                                        '
-        for key in ['qtype', 'qmag1type', 'qmag2type', 'qmag3type',
-                    'qmomenttype', 'qlocqual', 'qfocalqual']:
-            if key in evhead:
-                efs_data.ehead[key] = '{:4s}'.format(evhead[key])
-            else:
-                efs_data.ehead[key] = '    '
-        for key in ['qlat', 'qlon', 'qdep', 'qsc', 'qmag1', 'qmag2', 'qmag3',
-                    'qmoment', 'qstrike', 'qdip', 'qrake', 'qyr', 'qmon',
-                    'qdy', 'qhr', 'qmn', 'cuspid']:
-            if key in evhead:
-                efs_data.ehead[key] = evhead[key]
-            elif key in ['qlat', 'qlon', 'qdep', 'qsec', 'qmoment']:
-                efs_data.ehead[key] = -999.
-            else:
-                efs_data.ehead[key] = -999
-
-        # loop over traces in stream
-        efs_data.ehead['numts'] = len(st)
-        efs_data.ehead['maxnumts'] = len(st)
-        for ii, tr in enumerate(st):
-
-            # tshead: blank fields
-            wf = {
-                'datasource': '        ', 'sensor': '        ', 'units': '        ', 'dva': '    ',
-                'pick1q': '    ', 'pick2q': '    ', 'pick3q': '    ', 'pick4q': '    ',
-                'pick1name': '    ', 'pick2name': '    ', 'pick3name': '    ', 'pick4name': '    ',
-                'ppolarity': '    ', 'compazi': -99.0, 'compang': -99.0, 'f1': -1.0, 'f2': -1.0,
-                'deldist': -99.0, 'slat': -99.0, 'slon': -99.0, 'selev': -99.0,
-                'sazi': -99.0, 'qazi': -99.0, 'pick1': 0.0, 'pick2': 0.0, 'pick3': 0.0, 'pick4': 0.0,
-                'problem': '    '
-            }
-
-            # tshead: fields from stats
-
-            if 'invs' in locals():
-                tmp1 = invs.select(station = tr.stats.station)
-                wf['slat'] = tmp1[0].stations[0].latitude
-                wf['slon'] = tmp1[0].stations[0].longitude
-                wf['selev'] = tmp1[0].stations[0].elevation
-
-                tmp2 = geodetics.gps2dist_azimuth(wf['slat'], wf['slon'], evhead['qlat'], evhead['qlon'])
-                wf['qazi'] = tmp2[2]
-                wf['sazi'] = tmp2[1]
-                wf['deldist'] = geodetics.kilometer2degrees(tmp2[0] / 1E3)
-
-            wf['dt'] = tr.stats.delta
-            wf['syr'] = tr.stats.starttime.year
-            wf['smon'] = tr.stats.starttime.month
-            wf['sdy'] = tr.stats.starttime.day
-            wf['shr'] = tr.stats.starttime.hour
-            wf['smn'] = tr.stats.starttime.minute
-            wf['ssc'] = float(tr.stats.starttime.second + tr.stats.starttime.microsecond / 1.e6)
-            wf['gain'] = tr.stats.calib
-            wf['npts'] = tr.stats.npts
-
-            # net, sta, chan, loc
-            wf['stype'] = "{:4s}".format(tr.stats.network)
-            wf['stname'] = "{:8s}".format(tr.stats.station)
-            wf['loccode'] = "{:8s}".format(tr.stats.location)
-            wf['chnm'] = "{:4s}".format(tr.stats.channel)
-
-            # calculate tdif = origin time - starttime
-            try:
-                qtime = UTCDateTime(
-                    efs_data.ehead['qyr'], efs_data.ehead['qmon'], efs_data.ehead['qdy'],
-                    efs_data.ehead['qhr'], efs_data.ehead['qmn'], efs_data.ehead['qsc']
-                )
-                wf['tdif'] = qtime - tr.stats.starttime
-            except:
-                wf['tdif'] = 0.0
-
-            # waveform data
-            wf['data'] = tr.data
-
-            # add to list
-            efs_data.waveforms.append(wf)
-
-        # return
-        return efs_data
-
-
-# write efs based on the EFS class
-# itype defines the bytepos and time series values
-
-def export_efs(EFSPATH, efsname, efs_data, itype):
+### Function to write EFS file
+# file is EFSPATH + efsname
+# data comes from efs_data
+# prec_wf is the time series array precision (default is f32)
+# prec_bp is the byte position array precision (default is i32)
+def export_efs(EFSPATH, efsname, efs_data, prec_wf = np.float32, prec_bp = "i"):
+    
+    # open file
     fname2 = EFSPATH + efsname
     f22 = open(fname2, "wb")
 
-    if itype == 1:
-        ibytetype = "i"
-        itstype = np.int32
-    elif itype == 2:
-        ibytetype = "i"
-        itstype = np.single
-    elif itype == 3:
-        ibytetype = "q"
-        itstype = np.int32
-    elif itype == 4:
-        ibytetype = "q"
-        itstype = np.single
-
     # write file header
-    # arr = struct.pack("i", efs_data.fhead['bytetype'])
     f22.write(struct.pack("i", efs_data.fhead['bytetype']))
     f22.write(struct.pack("i", efs_data.fhead['eheadtype']))
     f22.write(struct.pack("i", efs_data.fhead['nbytes_ehead']))
@@ -1409,13 +406,13 @@ def export_efs(EFSPATH, efsname, efs_data, itype):
 
     # byte positions for all time series
     for ipos in range(0, efs_data.ehead['numts']):
-        f22.write(struct.pack(ibytetype, efs_data.ehead['bytepos'][ipos]))
+        f22.write(struct.pack(prec_bp, efs_data.ehead['bytepos'][ipos]))
 
     # ilen = 100000
     # np.array(np.zeros(ilen*efs_data.ehead['numts']), dtype=np.uint32).tofile(f22)
 
+    # write time series data
     for ii in range(0, efs_data.ehead['numts']):
-
         f22.seek(efs_data.ehead['bytepos'][ii])
         f22.write(struct.pack("8s", efs_data.waveforms[ii]['stname'].encode()))
         f22.write(struct.pack("8s", efs_data.waveforms[ii]['loccode'].encode()))
@@ -1460,19 +457,18 @@ def export_efs(EFSPATH, efsname, efs_data, itype):
         f22.write(struct.pack("f", efs_data.waveforms[ii]['pick3']))
         f22.write(struct.pack("f", efs_data.waveforms[ii]['pick4'] * 0 - 99))
 
+        # dummy spots
         for idum in range(0, 20):
             f22.write(struct.pack("i", idum * 0))
 
-        # f22.write(bytearray(efs_data.waveforms[ii]['data']))
-        # np.array(efs_data.waveforms[ii]['data'], dtype=np.uint32).tofile(f22)
+        # waveform arrays
         tmp1 = efs_data.waveforms[ii]['data']
-        np.array(tmp1, dtype = itstype).tofile(f22)
+        #np.array(tmp1, dtype = itstype).tofile(f22)
+        tmp1.astype(prec_wf).tofile(f22)
 
-    f22.close()
+    f22.close() # close
 
-
-
-
+### Simple function to convert ObsPy catalog to EFS event header
 def cat2ehead(st1,cat):
     import obspy
     ehead = {}
@@ -1506,4 +502,3 @@ def cat2ehead(st1,cat):
     ehead['qmn'] = cat[0].origins[0].time.minute
 
     return ehead
-
