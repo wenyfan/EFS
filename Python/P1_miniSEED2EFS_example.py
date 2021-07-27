@@ -14,8 +14,8 @@ from obspy.clients.fdsn import Client
 import os
 
 # Specify file paths
-EFSPATH = "../EX_DATA/"
-miniSEED_PATH = '../EX_DATA/CI/'
+EFSPATH = "./"
+miniSEED_PATH = './CI/'
 
 # Download event information for Ridgecrest using ObsPy
 print("\nDownloading Ridgecrest event information...")
@@ -52,14 +52,17 @@ print("Done.")
 # Write EFS to file
 print("\nTesting EFS export.")
 filename = 'EFS_Example.efs'
-export_efs(EFSPATH, filename, efs_data,np.float32) # save arrays as default f32 precision
+# save arrays as default f32 precision, bytepos as i32
+export_efs(EFSPATH, filename, efs_data,np.float32,"i")
+filename2 = 'EFS_Example2.efs'
+# save arrays as i32 precision, bytepos as i32
+export_efs(EFSPATH, filename2, efs_data,np.int32,"i")
 print("Done.")
 
+# Read EFS with customized precision as they were stored
+efs_data_2 = EFS(EFSPATH + filename,np.float32,np.int32)
+efs_data_3 = EFS(EFSPATH + filename2,np.int32,np.int32)
 # Convert EFS to obspy
 print("\nConverting EFS object back to a stream.")
-efs_data_2 = EFS(EFSPATH + filename)
 st2 = efs_data_2.to_obspy()
-print("Done.")
-print(st2)
-print("First trace:")
-print(st2[0].data)
+st3 = efs_data_3.to_obspy()

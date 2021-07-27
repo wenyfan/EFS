@@ -20,7 +20,7 @@ class EFS():
     #  efsfname: name of file to read
     #  prec_wf: precision for waveform arrays, 32 or 64
     #  prec_bp: precision for byteposition arrays
-    def __init__(self, efsfname=None, prec_wf=32, prec_bp=32):
+    def __init__(self, efsfname=None, prec_wf=np.float32, prec_bp=np.int32):
 
         # initialize fields
         self.fhead = {}
@@ -76,10 +76,7 @@ class EFS():
             dummy = struct.unpack('i', f.read(4))[0]
 
         # Get byte positions for all time series (i64 or i32 arrays)
-        if prec_bp == 64:
-            bytepos = np.fromfile(f, dtype = np.int64, count = self.ehead['numts'])
-        else:
-            bytepos = np.fromfile(f, dtype = np.int32, count = self.ehead['numts'])
+        bytepos = np.fromfile(f, dtype = prec_bp, count = self.ehead['numts'])
         self.ehead['bytepos'] = bytepos
 
         # Now loop over all the time series
@@ -136,10 +133,7 @@ class EFS():
                 dummy = struct.unpack('i', f.read(4))[0]
 
             # Read the time-series itself
-            if prec_wf==64:
-                data = np.fromfile(f, dtype = np.float64, count = tshead['npts'])
-            else:
-                data = np.fromfile(f, dtype = np.float32, count = tshead['npts'])
+            data = np.fromfile(f, dtype = prec_wf, count = tshead['npts'])
 
             # Bundle tsheader and time-series for this waveform into efsdata, then append to list
             efsdata = tshead
