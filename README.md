@@ -12,6 +12,7 @@ Fan et al., 2021, Event Filing System (EFS): A binary seismic data format for fa
 
 # Contributors
 Peter Shearer, Wenyuan Fan, Daniel Trugman, Robin Matoza
+and you! We would love to see your customized use of the EFS format
 
 # Bugs
 Please report bugs and questions to wenyuanfan@ucsd.edu or pshearer@ucsd.edu
