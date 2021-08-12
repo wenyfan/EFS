@@ -1,14 +1,14 @@
 # Python codes to use EFS files (EFSpy)
 
-This set of codes can read in and save files in the EFS format.
+This set of codes can read and write EFS files.
 
 ## Citation
 If you make use of this code in published work, please cite Fan *et al.* (2021).    
 
 ## Installation
-The files are in Python script format and are ready for use in any operating system.
+The files are in Python script format and are ready for use in any operating systems.
 ### ObsPy
-ObsPy is called in the set of codes for certain parts of data processing.
+ObsPy is called in the set of codes.
 https://docs.obspy.org/
 
 ## Bugs
@@ -22,4 +22,4 @@ Module file for EFSpy. It contains functions for reading/writing EFS files and f
 An example python script to download seismic data.
 
 ### P1_miniSEED2EFS_example.py
-An example python script to read in miniSEED data and write (and read) the data as an EFS file.
+An example python script to read in miniSEED data and write/read EFS files.
