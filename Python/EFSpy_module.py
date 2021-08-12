@@ -1,6 +1,6 @@
 # define EFS, read and write EFS
 # Modified from codes of Daniel Trugman and Robin Matoza
-# Wenyuan Fan 2021, 03, 01
+# Wenyuan Fan and Daniel Trugman, 2021, 08, 11
 
 
 import numpy as np
