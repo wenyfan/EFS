@@ -11,8 +11,7 @@ Details of the EFS format is discussed in the included pre-print.
 Fan et al., 2021, Event Filing System (EFS): A binary seismic data format for fast IO on demand on multiple platforms, submitted to SRL
 
 # Contributors
-Peter Shearer, Wenyuan Fan, Daniel Trugman, Robin Matoza
-and you! We would love to see your customized use of the EFS format
+Peter Shearer, Wenyuan Fan, Daniel Trugman, Robin Matoza, Janine Buehler, and you! We would love to see your customized use of the EFS format
 
 # Bugs
 Please report bugs and questions to wenyuanfan@ucsd.edu or pshearer@ucsd.edu
