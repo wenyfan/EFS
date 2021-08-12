@@ -5,6 +5,8 @@ The Event Filing System (EFS) is a seismic data format, which groups seismograms
 
 The core EFS subroutines are written in C and Fortran 90. We also provide Python and MATLAB codes to work with the EFS files, including subroutines to convert common seismic data formats into EFS files. The Python and MATLAB codes follow the same data structure as defined in the Fortran codes but they can be used independently without the Fortran subroutines. 
 
+Details of the EFS format is discussed in the included pre-print. 
+
 # Citation
 Fan et al., 2021, Event Filing System (EFS): A binary seismic data format for fast IO on demand on multiple platforms, submitted to SRL
 
