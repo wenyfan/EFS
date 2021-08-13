@@ -7,6 +7,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import struct
 import obspy
+import os
 
 
 #### EFS Class Definition ###
@@ -300,10 +301,17 @@ class EFS():
 
             # tshead: fields from stats
             if 'invs' in locals():
-                tmp1 = invs.select(station = tr.stats.station)
-                wf['slat'] = tmp1[0].stations[0].latitude
-                wf['slon'] = tmp1[0].stations[0].longitude
-                wf['selev'] = tmp1[0].stations[0].elevation
+
+                try: # when obspy stream has station information (e.g., NIED F-net's SAC) and inventory file is unnecessary
+                    wf['slat'] = tr.stats.sac.stla
+                    wf['slon'] = tr.stats.sac.stlo
+                    wf['selev'] = tr.stats.sac.stel
+
+                except:
+                    tmp1 = invs.select(station = tr.stats.station)
+                    wf['slat'] = tmp1[0].stations[0].latitude
+                    wf['slon'] = tmp1[0].stations[0].longitude
+                    wf['selev'] = tmp1[0].stations[0].elevation
 
                 tmp2 = geodetics.gps2dist_azimuth(wf['slat'], wf['slon'], evhead['qlat'], evhead['qlon'])
                 wf['qazi'] = tmp2[2]
@@ -347,14 +355,14 @@ class EFS():
 
 
 ### Function to write EFS file
-# file is EFSPATH + efsname
+# file is `EFSPATH/efsname`
 # data comes from efs_data
 # prec_wf is the time series array precision (default is f32)
 # prec_bp is the byte position array precision (default is i32)
 def export_efs(EFSPATH, efsname, efs_data, prec_wf = np.float32, prec_bp = "i"):
-    
+
     # open file
-    fname2 = EFSPATH + efsname
+    fname2 = os.path.join(EFSPATH, efsname)
     f22 = open(fname2, "wb")
 
     # write file header
