@@ -1,5 +1,5 @@
 ### Example script to interact with EFS files using ObsPy.
-#   Here we gather event, station, and waveform data in ObsPy format for the 
+#   Here we gather event, station, and waveform data in ObsPy format for the
 #   2019 Ridgecrest earthquake. We then create an EFS file from this information,
 #   and test file export and conversion.
 
@@ -14,8 +14,8 @@ from obspy.clients.fdsn import Client
 import os
 
 # Specify file paths
-EFSPATH = "./"
-miniSEED_PATH = './CI/'
+EFSPATH = "../EX_DATA"
+miniSEED_PATH = '../EX_DATA/CI'
 
 # Download event information for Ridgecrest using ObsPy
 print("\nDownloading Ridgecrest event information...")
@@ -26,11 +26,11 @@ cat = client.get_events(starttime = origin_time - 20, endtime = origin_time + 20
 print("Done\n")
 
 # Read waveforms into obspy Stream and Inventory
-iPATH = miniSEED_PATH + 'waveforms/'
-iPATH_inv = miniSEED_PATH + 'stations/'
+iPATH = os.path.join(miniSEED_PATH, 'waveforms')
+iPATH_inv = os.path.join(miniSEED_PATH, 'stations')
 try:
-    st1 = obspy.read(iPATH + '*')
-    inv1 = obspy.read_inventory(iPATH_inv + '*')
+    st1 = obspy.read(os.path.join(iPATH, '*'))
+    inv1 = obspy.read_inventory(os.path.join(iPATH_inv, '*'))
     print("Reading data from:", iPATH)
     print(st1)
     print("First trace:")
@@ -60,8 +60,8 @@ export_efs(EFSPATH, filename2, efs_data,np.int32,"i")
 print("Done.")
 
 # Read EFS with customized precision as they were stored
-efs_data_2 = EFS(EFSPATH + filename,np.float32,np.int32)
-efs_data_3 = EFS(EFSPATH + filename2,np.int32,np.int32)
+efs_data_2 = EFS(os.path.join(EFSPATH, filename),np.float32,np.int32)
+efs_data_3 = EFS(os.path.join(EFSPATH, filename2),np.int32,np.int32)
 # Convert EFS to obspy
 print("\nConverting EFS object back to a stream.")
 st2 = efs_data_2.to_obspy()

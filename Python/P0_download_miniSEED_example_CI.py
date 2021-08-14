@@ -8,6 +8,7 @@ import obspy
 from obspy.clients.fdsn.mass_downloader import CircularDomain, \
     Restrictions, MassDownloader
 from obspy.clients.fdsn import Client
+import os
 
 # define search domain
 domain = CircularDomain(latitude=35.77, longitude=-117.599,
@@ -29,9 +30,15 @@ restrictions = Restrictions(
 # instantiate mass downloader
 mdl = MassDownloader()
 
+# prepare storages
+mseed_storage = '../EX_DATA/CI/waveforms'
+stationxml_storage = '../EX_DATA/CI/stations'
+os.makedirs(mseed_storage, exist_ok=True)
+os.makedirs(stationxml_storage, exist_ok=True)
+
 # download data
 print("Downloading data, please wait...")
 print("(Note, no changes will be made if data does not need to be updated).")
-mdl.download(domain,restrictions, mseed_storage="../EX_DATA/CI/waveforms/",
-             stationxml_storage="../EX_DATA/CI/stations/")
+mdl.download(domain,restrictions, mseed_storage=mseed_storage,
+             stationxml_storage=stationxml_storage)
 print("\nDONE")
