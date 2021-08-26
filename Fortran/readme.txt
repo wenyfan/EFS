@@ -5,30 +5,34 @@ which stores multiple records for an event (e.g., earthquake or explosion)
 in a single file.  It is written in Fortran 90 but performs the basic I/O operations
 in C by calling routines from disk.c, which must be compiled separately.
 
-To compile the routines, enter:
+To compile the disk.c routines, enter:
 
-./subs.bld
+gcc -c disk.c -o disk.o                    (assuming gcc compiler)
 
-which will perform:
+There are also byte swapping routines in C that must be compiled:
 
-gcc -c disk.c -o disk.o                      (assuming gcc compiler)
 gcc -c swapsubs.c -o swapsubs.o 
+
+To compile the efs_subs.f90 source code, enter: 
+ 
 gfortran -c efs_subs.f90 -o efs_subs.o       (assuming gfortran compiler)
 
+NOTE:  If you get a compiler error message about mismatched arguments, try using
+this compiler flag:
 
-The following example F90 programs are also provided
-
-testefs.f90 -- creates new EFS file, closes it, then opens it and read from it.
-copyefs.f90 -- copies EFS file.
-listefs.f90 -- lists EFS header information.
-
-These programs can be compiled using the Makefile, i.e.,
-
-make testefs
-make copyefs
-make listefs
+gfortran -c --allow-argument-mismatch efs_subs.f90 -o efs_subs.o
 
 
+An example Makefile for the program testefs.f90 is as follows:
+
+OBJS2 = disk.o	\
+        swapsubs.o \
+        efs_subs.o
+	 
+testefs: Makefile testefs.f90 $(OBJS2)
+	 gfortran $(OBJS2) testefs.f90 -o testefs
+	 
+	 
 The header formats take advantage of the 'type' construct in Fortran90, which
 provides something similar to structures in C.  These structures are defined
 in a module at the beginning of the efs_subs.f90 source code.  Thus the first 
@@ -39,10 +43,19 @@ line of any program that uses these routines should be:
 Note that in the Makefile, testefs.f90 is after efs_subs.o in the gfortran line. 
 This is necessary so that the compiler can make sense of this line.
 
-WARNING:  It seems that the efs_subs.o file must be actually compiled in the same directory
-as the main program that uses its modules.  Simply copying the efs_subs.o file into
-the directory is not enough.  This does not seem right, but for now that is how
-I have gotten things to work.  
+NOTE: When compiling a Fortran program that uses the EFS routines, be sure that the
+efs_subs.o file is compiled in the same directory so that the main program can find
+the correct modules.  Alternatively, you can include a MOD link in the Makefile, i.e.,
+
+OBJS2 = disk.o	\
+        swapsubs.o \
+        efs_subs.o
+
+MOD = /Users/shearer/PROG/EFS          (path to directory where efs_subs was compiled)
+	 
+testefs: Makefile testefs.f90 $(OBJS2)
+	 gfortran -I$(MOD) $(OBJS2) testefs.f90 -o testefs 
+
 
 Written January, 2010 by Peter Shearer (pshearer@ucsd.edu)
 
@@ -266,14 +279,6 @@ EFS_READ_TS reads time series
     Returns: ts -- time series array (r*4)
 
 
-In principle, the EFS file can contain as many records 
-as desired and the records can have arbitrary lengths. In the Fortran package, the default values 
-are set as:
-
-maxnpts=100000000          !maximum number of points in time series
-max_bytepos_size=10000       !maximum number of time series per file
-
-which can be adjusted if needed.
 
 
 
