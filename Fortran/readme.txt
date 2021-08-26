@@ -266,6 +266,14 @@ EFS_READ_TS reads time series
     Returns: ts -- time series array (r*4)
 
 
+In principle, the EFS file can contain as many records 
+as desired and the records can have arbitrary lengths. In the Fortran package, the default values 
+are set as:
+
+maxnpts=100000000          !maximum number of points in time series
+max_bytepos_size=10000       !maximum number of time series per file
+
+which can be adjusted if needed.
 
 
 
