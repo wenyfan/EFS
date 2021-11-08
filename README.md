@@ -8,7 +8,7 @@ The core EFS subroutines are written in C and Fortran 90. We also provide Python
 Details of the EFS format is discussed in the included pre-print. 
 
 # Citation
-Fan et al., 2021, Event Filing System (EFS): A binary seismic data format for fast IO on demand on multiple platforms, submitted to SRL.
+Fan et al., 2021, Event Filing System (EFS): A binary seismic data format for fast IO on demand on multiple platforms, submitted.
 
 # Contributors
 Peter Shearer, Wenyuan Fan, Daniel Trugman, Robin Matoza, Janine Buehler, and you! We would love to see your customized version of the EFS format.
